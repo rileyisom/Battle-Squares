@@ -1,0 +1,108 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{ level.name }}</title>
+    <link rel="stylesheet" href="{% static 'game/grid.css' %}">
+    <style>
+      :root {
+        --grid-width: {{ level.width }};
+      }
+    </style>
+  </head>
+
+  <body
+    data-grid-width="{{ level.width }}"
+    data-update-url-base="/update_vehicle_position/"
+    data-mark-start-url="/mark_game_started/{{ level.id }}/"
+    data-reset-url="/reset_level/{{ level.id }}/"
+    data-level-id="{{ level.id }}"
+    data-game-started="{{ game_started|yesno:'true,false' }}"
+  >
+    <h1>{{ level.name }}</h1>
+    <button id="start-btn", class="btn">Start Game</button>
+    <button id="reset-btn", class="btn">Reset Game</button>
+
+    <div class="container">
+      <!-- Dock on the left -->
+      <div id="vehicle-dock" class="dock">
+        <h3>Your Vehicles</h3>
+        {% for vehicle in player_vehicles %}
+          {% if vehicle.tile and vehicle.tile.terrain_type == "DOCK" %}
+            <!-- Vehicle is on a dock tile -->
+            <img
+              src="{% static 'game/blue'|add:vehicle.vehicle_type|lower|add:'.png' %}"
+              alt="{{ vehicle.vehicle_type }}"
+              class="vehicle"
+              data-vehicle-id="{{ vehicle.id }}"
+              data-vehicle-type="{{ vehicle.vehicle_type }}"
+              data-tile-id="{{ vehicle.tile.id }}"
+              data-dock-tile-id="{{ vehicle.tile.id }}" 
+              draggable="true"
+            />
+          {% elif not vehicle.tile %}
+            <!-- Vehicle has no tile (legacy) -->
+            <img
+              src="{% static 'game/blue'|add:vehicle.vehicle_type|lower|add:'.png' %}"
+              alt="{{ vehicle.vehicle_type }}"
+              class="vehicle"
+              data-vehicle-id="{{ vehicle.id }}"
+              data-vehicle-type="{{ vehicle.vehicle_type }}"
+              draggable="true"
+            />
+          {% endif %}
+        {% endfor %}
+      </div>
+
+      <!-- Grid in the center -->
+      <div class="grid" id="grid">
+        {% for y, row in grid.items %}
+          {% for tile in row %}
+            <div class="tile {{ tile.terrain_type }}" data-tile-id="{{ tile.id }}">
+              <!-- Enemy vehicles -->
+              {% for vehicle in enemy_vehicles %}
+                {% if vehicle.tile.id == tile.id %}
+                  <img
+                    src="{% static 'game/red'|add:vehicle.vehicle_type|cut:'ENEMY_'|lower|add:'.png' %}"
+                    alt="{{ vehicle.vehicle_type }}"
+                    class="vehicle"
+                    draggable="false"
+                  />
+                {% endif %}
+              {% endfor %}
+
+              <!-- Player vehicles already placed -->
+              {% for vehicle in player_vehicles %}
+                {% if vehicle.tile and vehicle.tile.id == tile.id and vehicle.tile.terrain_type != "DOCK" %}
+                  <img
+                    src="{% static 'game/blue'|add:vehicle.vehicle_type|lower|add:'.png' %}"
+                    alt="{{ vehicle.vehicle_type }}"
+                    class="vehicle"
+                    data-vehicle-id="{{ vehicle.id }}"
+                    data-vehicle-type="{{ vehicle.vehicle_type }}"
+                    data-tile-id="{{ vehicle.tile.id }}"
+                    draggable="true"
+                  />
+                {% endif %}
+              {% endfor %}
+            </div>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <script>
+      window.gameConfig = {
+        gridWidth: {{ level.width }},
+        levelId: {{ level.id }},
+        gameStarted: {{ game_started|yesno:"true,false" }},
+        urls: {
+          updateVehicle: "/update_vehicle_position/",
+          markStart: "/mark_game_started/{{ level.id }}/",
+          resetLevel: "/reset_level/{{ level.id }}/"
+        }
+      };
+    </script>
+    <script src="{% static 'game/grid.js' %}"></script>
+  </body>
+</html>

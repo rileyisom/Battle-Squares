@@ -1,0 +1,6 @@
+<h1>Select a Level</h1>
+<ul>
+  {% for level in levels %}
+  <li><a href="{% url 'grid' level.id %}">{{ level.name }}</a></li>
+  {% endfor %}
+</ul>
