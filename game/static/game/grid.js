@@ -14,24 +14,31 @@ const vehicles = document.querySelectorAll(".vehicle[data-vehicle-type]:not([alt
 // Track game state in JS memory
 let gameStarted = initialGameStarted;
 
-// Assign each vehicle its fixed dock tile ID
+// ---- ASSIGN FIXED DOCK TILE ID ----
 vehicles.forEach(v => {
   if (!v.dataset.dockTileId) {
-    v.dataset.dockTileId = v.dataset.tileId; // assign the original dock tile ID
+    v.dataset.dockTileId = v.dataset.tileId || null;
   }
 });
 
-// ---- DRAG START / END ----
-vehicles.forEach(vehicle => {
-  vehicle.addEventListener("dragstart", e => {
-    if (gameStarted) return;
-    vehicle.classList.add("dragging");
-    e.dataTransfer.setData("vehicleId", vehicle.dataset.vehicleId);
-    e.dataTransfer.setData("vehicleType", vehicle.dataset.vehicleType);
-  });
+// ---- DRAG START / END (event delegation) ----
+document.addEventListener("dragstart", e => {
+  const vehicle = e.target.closest(".vehicle[data-vehicle-type]:not([alt*='ENEMY'])");
+  if (!vehicle || gameStarted) return;
 
-  vehicle.addEventListener("dragend", () => {
-    vehicle.classList.remove("dragging");
+  vehicle.classList.add("dragging");
+  e.dataTransfer.setData("vehicleId", vehicle.dataset.vehicleId);
+  e.dataTransfer.setData("vehicleType", vehicle.dataset.vehicleType);
+});
+
+
+document.addEventListener("dragend", e => {
+  const vehicle = e.target.closest(".vehicle[data-vehicle-type]:not([alt*='ENEMY'])");
+  if (vehicle) vehicle.classList.remove("dragging");
+
+  // Clear any lingering highlights
+  document.querySelectorAll(".tile.valid-drop, .tile.invalid-drop, .tile.drag-over").forEach(t => {
+    t.classList.remove("valid-drop", "invalid-drop", "drag-over");
   });
 });
 
@@ -39,32 +46,15 @@ vehicles.forEach(vehicle => {
 function allowDropTarget(target) {
   target.addEventListener("dragover", e => {
     if (gameStarted) return;
-    e.preventDefault();
-  });
 
-  target.addEventListener("drop", e => {
-    if (gameStarted) return;
+    // Must call preventDefault() to allow dropping
     e.preventDefault();
 
-    const vehicleId = e.dataTransfer.getData("vehicleId");
-    const vehicleType = e.dataTransfer.getData("vehicleType");
-    const vehicle = document.querySelector(`[data-vehicle-id='${vehicleId}']`);
+    const vehicle = document.querySelector(".vehicle.dragging");
     if (!vehicle) return;
+    const vehicleType = vehicle.dataset.vehicleType;
 
-    // Special case: dropping on the dock
-    if (target.id === "vehicle-dock") {
-      // Always assign the original dock tile ID
-      vehicle.dataset.tileId = vehicle.dataset.dockTileId;
-
-      // Append vehicle back to dock container
-      target.appendChild(vehicle);
-      return; // stop further processing
-    }
-
-    // Prevent placing on occupied tile
-    if (target.classList.contains("tile") && target.querySelector(".vehicle")) return;
-
-    // Determine terrain
+    // Determine terrain type
     const terrain = target.classList.contains("WATER")
       ? "WATER"
       : target.classList.contains("LAND")
@@ -73,7 +63,57 @@ function allowDropTarget(target) {
       ? "DOCK"
       : "OTHER";
 
-    // Validate placement
+    // Determine if drop is invalid
+    const invalid =
+      (vehicleType.includes("BOAT") && !["WATER", "DOCK"].includes(terrain)) ||
+      (vehicleType.includes("TANK") && !["LAND", "DOCK"].includes(terrain)) ||
+      (target.classList.contains("tile") && target.querySelector(".vehicle"));
+
+    // Reset classes
+    target.classList.remove("valid-drop", "invalid-drop");
+
+    // Apply the right one
+    if (invalid) {
+      target.classList.add("invalid-drop");
+    } else {
+      target.classList.add("valid-drop");
+    }
+  });
+
+  target.addEventListener("dragleave", e => {
+    e.currentTarget.classList.remove("valid-drop", "invalid-drop");
+  });
+
+  target.addEventListener("drop", e => {
+    if (gameStarted) return;
+    e.preventDefault();
+
+    const dropTarget = e.currentTarget;
+    dropTarget.classList.remove("valid-drop", "invalid-drop");
+
+    const vehicleId = e.dataTransfer.getData("vehicleId");
+    const vehicleType = e.dataTransfer.getData("vehicleType");
+    const vehicle = document.querySelector(`[data-vehicle-id='${vehicleId}']`);
+    if (!vehicle) return;
+
+    // Dock special case
+    if (dropTarget.id === "vehicle-dock") {
+      vehicle.dataset.tileId = vehicle.dataset.dockTileId;
+      dropTarget.appendChild(vehicle);
+      return;
+    }
+
+    // Prevent placing on occupied tile
+    if (dropTarget.classList.contains("tile") && dropTarget.querySelector(".vehicle")) return;
+
+    const terrain = dropTarget.classList.contains("WATER")
+      ? "WATER"
+      : dropTarget.classList.contains("LAND")
+      ? "LAND"
+      : dropTarget.classList.contains("DOCK")
+      ? "DOCK"
+      : "OTHER";
+
     if (
       (vehicleType.includes("BOAT") && !["WATER", "DOCK"].includes(terrain)) ||
       (vehicleType.includes("TANK") && !["LAND", "DOCK"].includes(terrain))
@@ -82,16 +122,14 @@ function allowDropTarget(target) {
       return;
     }
 
-    // Move vehicle to target tile
-    vehicle.parentElement?.removeChild(vehicle);
-    target.appendChild(vehicle);
-    vehicle.dataset.tileId = target.dataset.tileId || null;
+    dropTarget.appendChild(vehicle);
+    vehicle.dataset.tileId = dropTarget.dataset.tileId || null;
   });
 }
 
-// Apply to grid tiles and dock
-tiles.forEach(allowDropTarget);
-allowDropTarget(dock);
+// ---- APPLY DROP HANDLERS ----
+document.querySelectorAll(".tile").forEach(allowDropTarget);
+allowDropTarget(document.getElementById("vehicle-dock"));
 
 // ---- START GAME ----
 startBtn.addEventListener("click", async () => {
@@ -100,13 +138,16 @@ startBtn.addEventListener("click", async () => {
   startBtn.disabled = true;
   startBtn.textContent = "Game Started!";
 
-  vehicles.forEach(v => (v.draggable = false));
+  // Disable dragging for all player vehicles
+  document.querySelectorAll(".vehicle[data-vehicle-type]:not([alt*='ENEMY'])").forEach(v => {
+    v.draggable = false;
+  });
 
   // Save vehicle positions
+  const vehicles = document.querySelectorAll(".vehicle[data-vehicle-type]:not([alt*='ENEMY'])");
   for (const vehicle of vehicles) {
     const vehicleId = vehicle.dataset.vehicleId;
-    const tileId = vehicle.dataset.tileId || vehicle.dataset.dockTileId; // use fixed dock tile if on dock
-
+    const tileId = vehicle.dataset.tileId || vehicle.dataset.dockTileId;
     await fetch(`${urls.updateVehicle}${vehicleId}/`, {
       method: "POST",
       headers: {
@@ -117,17 +158,14 @@ startBtn.addEventListener("click", async () => {
     });
   }
 
-  // Update level's "game started" flag in backend
+  // Mark the level as started for this user
   await fetch(urls.markStart, {
     method: "POST",
-    headers: {
-      "X-CSRFToken": getCookie("csrftoken"),
-    },
+    headers: { "X-CSRFToken": getCookie("csrftoken") },
   });
 
   alert("Your vehicle positions have been saved!");
 });
-
 
 // ---- RESET LEVEL ----
 resetBtn.addEventListener("click", async () => {
@@ -143,11 +181,11 @@ resetBtn.addEventListener("click", async () => {
 
   const result = await response.json();
   if (result.status === "ok") {
-    // Reset front-end
+    const vehicles = document.querySelectorAll(".vehicle[data-vehicle-type]:not([alt*='ENEMY'])");
     vehicles.forEach(vehicle => {
       vehicle.draggable = true;
 
-      // Move vehicle back to its fixed dock tile
+      // Move vehicle back to its dock tile
       const dockTileId = vehicle.dataset.dockTileId;
       const dockTile = document.querySelector(`.tile.DOCK[data-tile-id='${dockTileId}']`);
       if (dockTile) {
@@ -161,22 +199,23 @@ resetBtn.addEventListener("click", async () => {
     gameStarted = false;
     startBtn.disabled = false;
     startBtn.textContent = "Start Game";
-
-    // Reload the page to reflect new vehicle positions
     location.reload();
+
+    // Optional: reload to refresh any backend updates
+    // location.reload();
   } else {
     alert("Error resetting level: " + result.message);
   }
 });
 
-// ---- DISABLE BUTTON IF GAME STARTED ----
+// ---- INITIAL BUTTON STATE ----
 if (gameStarted) {
   startBtn.disabled = true;
   startBtn.textContent = "Game Started!";
-  vehicles.forEach(v => (v.draggable = false));
+  document.querySelectorAll(".vehicle[data-vehicle-type]:not([alt*='ENEMY'])").forEach(v => (v.draggable = false));
 }
 
-// ---- CSRF helper ----
+// ---- CSRF HELPER ----
 function getCookie(name) {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);

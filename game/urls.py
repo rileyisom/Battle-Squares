@@ -6,6 +6,9 @@ from . import views
 
 urlpatterns = [
     path('', views.level_list, name='level-list'),
+    path("register/", views.register_view, name="register"),
+    path("login/", views.login_view, name="login"),
+    path("logout/", views.logout_view, name="logout"),
     path('level/<int:level_id>/', views.grid_view, name='grid'),
     path("update_vehicle_position/<int:vehicle_id>/", views.update_vehicle_position, name="update_vehicle_position"),
     path("mark_game_started/<int:level_id>/", views.mark_game_started, name="mark_game_started"),
