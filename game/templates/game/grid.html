@@ -28,8 +28,7 @@
       <div id="vehicle-dock" class="dock">
         <h3>Your Vehicles</h3>
         {% for vehicle in player_vehicles %}
-          {% if vehicle.tile and vehicle.tile.terrain_type == "DOCK" %}
-            <!-- Vehicle is on a dock tile -->
+          {% if vehicle.tile.terrain_type == "DOCK" %}
             <img
               src="{% static 'game/blue'|add:vehicle.vehicle_type|lower|add:'.png' %}"
               alt="{{ vehicle.vehicle_type }}"
@@ -37,17 +36,7 @@
               data-vehicle-id="{{ vehicle.id }}"
               data-vehicle-type="{{ vehicle.vehicle_type }}"
               data-tile-id="{{ vehicle.tile.id }}"
-              data-dock-tile-id="{{ vehicle.tile.id }}" 
-              draggable="true"
-            />
-          {% elif not vehicle.tile %}
-            <!-- Vehicle has no tile (legacy) -->
-            <img
-              src="{% static 'game/blue'|add:vehicle.vehicle_type|lower|add:'.png' %}"
-              alt="{{ vehicle.vehicle_type }}"
-              class="vehicle"
-              data-vehicle-id="{{ vehicle.id }}"
-              data-vehicle-type="{{ vehicle.vehicle_type }}"
+              data-dock-tile-id="{{ vehicle.tile.id }}"
               draggable="true"
             />
           {% endif %}

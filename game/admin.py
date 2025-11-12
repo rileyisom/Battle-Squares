@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import Level, Tile, Vehicle
+from django.utils.html import format_html
+from .models import Level, Tile, StartingVehicle, PlayerVehicle, PlayerLevelState
 import random
 
 # Register your models here.
@@ -53,10 +54,10 @@ class LevelAdmin(admin.ModelAdmin):
             for i in range(3):  # 3 player vehicles: tank, boat, plane
                 dock_tiles.append(Tile(level=level, x=dock_x - i, y=height, terrain_type="DOCK"))
             Tile.objects.bulk_create(dock_tiles)
-            dock_tiles = list(level.tiles.filter(terrain_type="DOCK"))
 
-            # --- 4️⃣ CREATE ENEMY VEHICLES ---
+            # reload all tiles after bulk_create so they have IDs
             all_tiles = list(level.tiles.all())
+            dock_tiles = list(level.tiles.filter(terrain_type="DOCK"))
             used_tile_ids = set()
 
             def random_tile(terrain_filter=None):
@@ -65,25 +66,35 @@ class LevelAdmin(admin.ModelAdmin):
                     candidates = [t for t in candidates if t.terrain_type == terrain_filter]
                 return random.choice(candidates) if candidates else None
 
-            # Create each enemy one by one
+            # --- 4️⃣ CREATE ENEMY VEHICLES ---
             for vtype, terrain in [("ENEMY_TANK", "LAND"), ("ENEMY_BOAT", "WATER"), ("ENEMY_PLANE", None)]:
                 tile = random_tile(terrain)
                 if tile:
-                    Vehicle.objects.create(level=level, tile=tile, vehicle_type=vtype)
+                    StartingVehicle.objects.create(
+                        level=level,
+                        tile=tile,
+                        vehicle_type=vtype,
+                        is_enemy=True,
+                    )
                     used_tile_ids.add(tile.id)
 
             # --- 5️⃣ CREATE PLAYER VEHICLES (start on DOCK) ---
             player_types = ["TANK", "BOAT", "PLANE"]
             for i, vtype in enumerate(player_types):
-                Vehicle.objects.create(level=level, tile=dock_tiles[i], vehicle_type=vtype)
+                if i < len(dock_tiles):
+                    StartingVehicle.objects.create(
+                        level=level,
+                        tile=dock_tiles[i],
+                        vehicle_type=vtype,
+                        is_enemy=False,
+                    )
 
         self.message_user(request, "✅ Levels fully generated: tiles + vehicles created successfully!")
 
-
 @admin.register(Tile)
 class TileAdmin(admin.ModelAdmin):
-    list_display = ("x", "y", "terrain_type", "colored_preview")
-    list_filter = ("terrain_type",)
+    list_display = ("x", "y", "terrain_type", "level", "colored_preview")
+    list_filter = ("terrain_type", "level")
     search_fields = ("x", "y")
 
     def colored_preview(self, obj):
@@ -93,13 +104,19 @@ class TileAdmin(admin.ModelAdmin):
             "DOCK": "gray",
         }
         color = color_map.get(obj.terrain_type, "black")
-        return f'<div style="width:20px;height:20px;background:{color};border-radius:4px;"></div>'
-    colored_preview.allow_tags = True
+        return format_html(
+            '<div style="width:20px;height:20px;background:{};border-radius:4px;"></div>',
+            color
+        )
     colored_preview.short_description = "Preview"
 
 
-@admin.register(Vehicle)
+@admin.register(StartingVehicle)
 class VehicleAdmin(admin.ModelAdmin):
-    list_display = ("vehicle_type", "level", "tile")
-    list_filter = ("vehicle_type", "level")
+    list_display = ("vehicle_type", "level", "tile", "is_enemy", "terrain_type")
+    list_filter = ("vehicle_type", "level", "is_enemy")
     search_fields = ("vehicle_type",)
+
+    def terrain_type(self, obj):
+        return obj.tile.terrain_type if obj.tile else "None"
+    terrain_type.short_description = "Tile Type"

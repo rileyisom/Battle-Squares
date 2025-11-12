@@ -1,0 +1,9 @@
+<h2>Register</h2>
+<form method="POST">
+  {% csrf_token %}
+  <input type="text" name="username" placeholder="Username" required>
+  <input type="password" name="password" placeholder="Password" required>
+  <input type="password" name="password2" placeholder="Confirm Password" required>
+  <button type="submit">Register</button>
+</form>
+<p>Already have an account? <a href="{% url 'login' %}">Login</a></p>
