@@ -1,4 +1,10 @@
 <h1>Select a Level</h1>
+
+<form method="post" action="{% url 'logout' %}">
+  {% csrf_token %}
+  <button type="submit">Logout</button>
+</form>
+
 <ul>
   {% for level in levels %}
   <li><a href="{% url 'grid' level.id %}">{{ level.name }}</a></li>
