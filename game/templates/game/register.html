@@ -1,9 +1,29 @@
 <h2>Register</h2>
-<form method="POST">
-  {% csrf_token %}
-  <input type="text" name="username" placeholder="Username" required>
-  <input type="password" name="password" placeholder="Password" required>
-  <input type="password" name="password2" placeholder="Confirm Password" required>
-  <button type="submit">Register</button>
+
+<form method="post">
+    {% csrf_token %}
+
+    {{ form.non_field_errors }}
+
+    <p>
+        {{ form.username.label_tag }}<br>
+        {{ form.username }}
+        {{ form.username.errors }}
+    </p>
+
+    <p>
+        {{ form.password1.label_tag }}<br>
+        {{ form.password1 }}
+        {{ form.password1.errors }}
+    </p>
+
+    <p>
+        {{ form.password2.label_tag }}<br>
+        {{ form.password2 }}
+        {{ form.password2.errors }}
+    </p>
+
+    <button type="submit">Register</button>
 </form>
+
 <p>Already have an account? <a href="{% url 'login' %}">Login</a></p>

@@ -118,7 +118,7 @@ function allowDropTarget(target) {
       (vehicleType.includes("BOAT") && !["WATER", "DOCK"].includes(terrain)) ||
       (vehicleType.includes("TANK") && !["LAND", "DOCK"].includes(terrain))
     ) {
-      alert(`You can't place a ${vehicleType.toLowerCase()} on ${terrain.toLowerCase()}!`);
+      // alert(`You can't place a ${vehicleType.toLowerCase()} on ${terrain.toLowerCase()}!`);
       return;
     }
 
