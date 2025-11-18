@@ -29,12 +29,19 @@
 
       /* Main wrapper */
       .container {
-        position: relative;
         display: flex;
-        justify-content: center; /* centers the grid */
+        justify-content: center;
+        gap: 30px;      /* spacing between dock & grid */
         align-items: flex-start;
         margin-top: 20px;
       }
+
+      /* #grid-container {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        flex-direction: row;
+      } */
 
       /* Grid itself */
       .grid {
@@ -47,19 +54,27 @@
         border-radius: 8px;
       }
 
+      .side-panel {
+        width: 150px;
+        color: white;
+        padding: 10px;
+      }
+
       .tile {
         width: 40px;
         height: 40px;
         position: relative;
         border: 1px solid #444;
-        z-index: 1;
       }
       
-      .tile.drag-over {
-        z-index: 10; /* bring it to the top while dragging */
-      }
-      .tile.drag-over::before {
+      /* .tile.drag-over::before {
         box-shadow: 0 0 0 3px yellow;
+      } */
+      .tile.valid-drop::before {
+        box-shadow: 0 0 0 3px limegreen;
+      }
+      .tile.invalid-drop::before {
+        box-shadow: 0 0 0 3px red;
       }
 
       .tile.WATER {
@@ -80,32 +95,29 @@
         transition: box-shadow 0.1s ease;
       }
 
+      /* .tile.drag-over {
+        z-index: 10;
+      } */
+
       .tile.valid-drop {
         z-index: 10;
-      }
-      .tile.valid-drop::before {
-        box-shadow: 0 0 0 3px limegreen;
       }
 
       .tile.invalid-drop {
         z-index: 10;
       }
-      .tile.invalid-drop::before {
-        box-shadow: 0 0 0 3px red;
-      }
 
       /* Vehicle Dock */
       #vehicle-dock {
-        position: absolute;
-        left: calc(50% - (var(--grid-width) * 20px + 250px)); /* keeps dock left of grid */
-        top: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 8px;
-        padding: 10px;
-        border: 2px dashed #666;
+        
         width: 120px;
+        padding: 10px;
+        gap: 8px;
+
+        border: 2px dashed #666;
         background-color: #444;
         border-radius: 8px;
       }

@@ -1,3 +1,4 @@
+from collections import defaultdict
 from django.shortcuts import render, get_object_or_404
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
@@ -42,28 +43,36 @@ def initialize_player_state(user, level):
     """
     Ensure a PlayerLevelState exists for this user and level,
     and copy starting vehicles into PlayerVehicle if needed.
-    Skips creating enemy vehicles if they already exist.
+    Optimized to O(n) by minimizing database queries.
     """
-    player_state, created = PlayerLevelState.objects.get_or_create(user=user, level=level)
-    # print(f"🧩 initialize_player_state: user={user.username}, created={created}")
+    player_state, created = PlayerLevelState.objects.get_or_create(
+        user=user, 
+        level=level
+    )
 
-    # Copy starting vehicles if they don't already exist for this player state
-    print(f"vehicle count: {level.vehicles.count}")
-    for v in level.vehicles.all():
-        exists = player_state.vehicles.filter(
-            vehicle_type=v.vehicle_type,
-            is_enemy=v.is_enemy
-        ).exists()
-        if not exists:
-            PlayerVehicle.objects.create(
+    level_vehicles = list(
+        level.vehicles.select_related("tile").all()
+    )
+
+    existing = set(
+        player_state.vehicles.values_list("vehicle_type", "is_enemy")
+    )
+
+    to_create = []
+
+    for v in level_vehicles:
+        key = (v.vehicle_type, v.is_enemy)
+        if key not in existing:
+            to_create.append(PlayerVehicle(
                 player_state=player_state,
                 tile=v.tile,
                 vehicle_type=v.vehicle_type,
                 is_enemy=v.is_enemy
-            )
-            # print(f"✅ Created PlayerVehicle for {user.username}: {v.vehicle_type} (enemy={v.is_enemy})")
+            ))
 
-    # print(f"Total player vehicles for {user.username}: {player_state.vehicles.count()}")
+    if to_create:
+        PlayerVehicle.objects.bulk_create(to_create)
+
     return player_state
 
 
@@ -83,23 +92,21 @@ def grid_view(request, level_id):
     print(f"gamestarted: {player_state.game_started}")
 
     # Fetch all tiles for this level
-    tiles = level.tiles.all().order_by("y", "x")
+    all_tiles = list(level.tiles.order_by("y", "x"))
+    print(f"tile count: {len(all_tiles)}")
+    tiles = [t for t in all_tiles if t.terrain_type != "DOCK"]
+    dock_tiles = [t for t in all_tiles if t.terrain_type == "DOCK"]
 
-    # Filter out dock tiles for the main grid
-    visible_tiles = [tile for tile in tiles if tile.terrain_type != "DOCK"]
 
-    # Build grid as a dict {y-coordinate: [tiles in row]}
-    grid = {}
-    for tile in visible_tiles:
-        grid.setdefault(tile.y, []).append(tile)
-    grid = dict(sorted(grid.items()))
+    grid = defaultdict(list)
+    for tile in tiles:
+        grid[tile.y].append(tile)
+
+    grid = dict(grid) 
 
     # Get this user's player and enemy vehicles
-    player_vehicles = player_state.vehicles.filter(is_enemy=False)
-    enemy_vehicles = player_state.vehicles.filter(is_enemy=True)
-
-    # Get dock tiles for display in the dock container
-    dock_tiles = list(level.tiles.filter(terrain_type="DOCK").order_by("x", "y"))
+    player_vehicles = player_state.vehicles.filter(is_enemy=False).select_related("tile")
+    enemy_vehicles = player_state.vehicles.filter(is_enemy=True).select_related("tile")
 
     return render(
         request,
@@ -136,14 +143,13 @@ def update_vehicle_position(request, vehicle_id):
         print(f"✅ Updated {vehicle.vehicle_type} -> tile {tile_id}")
         return JsonResponse({"status": "ok"})
     except (PlayerVehicle.DoesNotExist, Tile.DoesNotExist):
-        return JsonResponse({"status": "error", "message": "Not found"}, status=404)
+        return json_error("Not found", 404)
     except Exception as e:
         print(f"❌ Error updating vehicle: {e}")
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+        return json_error(str(e), 500)
 
 
 @login_required(login_url='/login/')
-@csrf_exempt
 def mark_game_started(request, level_id):
     """Mark the user's PlayerLevelState as started for this level."""
     if request.method == "POST":
@@ -152,43 +158,26 @@ def mark_game_started(request, level_id):
         player_state.game_started = True
         player_state.save()
         return JsonResponse({"success": True})
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    return json_error("Invalid request", 500)
 
 
 @login_required(login_url='/login/')
-@csrf_exempt
 @require_POST
 def reset_level(request, level_id):
     """Reset a level for the current user: game_started=False, move player vehicles back to dock."""
     try:
         level = get_object_or_404(Level, pk=level_id)
         player_state, _ = PlayerLevelState.objects.get_or_create(user=request.user, level=level)
-
-        # Reset the game flag for this user
-        player_state.game_started = False
-        player_state.save()
-
-        # Get all dock tiles for this level
         dock_tiles = list(level.tiles.filter(terrain_type="DOCK").order_by('x', 'y'))
-        player_vehicles = list(player_state.vehicles.filter(is_enemy=False))
 
-        if len(dock_tiles) < len(player_vehicles):
-            return JsonResponse({
-                "status": "error",
-                "message": f"Not enough dock tiles ({len(dock_tiles)}) for player vehicles ({len(player_vehicles)})"
-            }, status=500)
-
-        # Move each player vehicle back to a dock tile
-        for vehicle, dock_tile in zip(player_vehicles, dock_tiles):
-            vehicle.tile = dock_tile
-            vehicle.save()
+        reset_player_state(player_state, dock_tiles)
 
         return JsonResponse({"status": "ok"})
     except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+        return json_error(str(e), 500)
+    
     
 @login_required(login_url='/login/')
-@csrf_exempt
 @require_POST
 def reset_level_for_all_users(request, level_id):
     """Reset a level for all players: game_started=False, move player vehicles back to dock."""
@@ -199,23 +188,27 @@ def reset_level_for_all_users(request, level_id):
 
         # Loop through all players who have a state for this level
         for player_state in PlayerLevelState.objects.filter(level=level):
-            player_state.game_started = False
-            player_state.turn_number = 1
-            player_state.save()
-
-            player_vehicles = list(player_state.vehicles.filter(is_enemy=False))
-            if len(dock_tiles) < len(player_vehicles):
-                return JsonResponse({
-                    "status": "error",
-                    "message": f"Not enough dock tiles ({len(dock_tiles)}) for player vehicles ({len(player_vehicles)})"
-                }, status=500)
-
-            # Move each player vehicle back to a dock tile
-            for vehicle, dock_tile in zip(player_vehicles, dock_tiles):
-                vehicle.tile = dock_tile
-                vehicle.save()
+            reset_player_state(player_state, dock_tiles)
 
         return JsonResponse({"status": "ok"})
 
     except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+        return json_error(str(e), 500)
+    
+    
+def reset_player_state(player_state, dock_tiles):
+    player_state.game_started = False
+    player_state.turn_number = 1
+    player_state.save()
+
+    vehicles = list(player_state.vehicles.filter(is_enemy=False))
+    if len(dock_tiles) < len(vehicles):
+        raise ValueError("Not enough dock tiles")
+
+    for vehicle, dock_tile in zip(sorted(vehicles, key=lambda v: v.id), dock_tiles):
+        vehicle.tile = dock_tile
+        vehicle.save()
+
+
+def json_error(message, status=400):
+    return JsonResponse({"status": "error", "message": message}, status=status)
