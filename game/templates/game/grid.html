@@ -23,7 +23,7 @@
     <button id="start-btn", class="btn">Start Game</button>
     <button id="reset-btn", class="btn">Reset Game</button>
 
-    <div class="container">
+    <div id="game-container" class="container">
       <!-- Dock on the left -->
       <div id="vehicle-dock" class="dock">
         <h3>Your Vehicles</h3>
@@ -78,6 +78,10 @@
           {% endfor %}
         {% endfor %}
       </div>
+
+      <div class="side-panel">
+        <!-- empty for now -->
+      </div>
     </div>
 
     <script>
@@ -92,6 +96,12 @@
         }
       };
     </script>
-    <script src="{% static 'game/grid.js' %}"></script>
+    <script type="module">
+      import { GameGrid } from "/static/game/grid.js";
+
+      const root = document.getElementById("game-container");
+      new GameGrid(root, window.gameConfig);
+    </script>
+    {% comment %} <script src="{% static 'game/grid.js' %}"></script> {% endcomment %}
   </body>
 </html>
