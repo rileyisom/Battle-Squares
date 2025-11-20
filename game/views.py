@@ -1,25 +1,19 @@
-from collections import defaultdict
-from django.shortcuts import render, get_object_or_404
-from django.http import JsonResponse
-from django.views.decorators.http import require_POST
-from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth import login, authenticate, logout
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.views import LoginView, LogoutView
-from django.views.generic import FormView
-from django.contrib.auth.forms import UserCreationForm
-from django.contrib.auth.models import User
-from django.shortcuts import render, redirect
-from django.contrib import messages
-from django.urls import reverse_lazy
-from .forms import SimpleUserCreationForm
-
-from .models import Level, Tile, StartingVehicle, PlayerLevelState, PlayerVehicle
 import json
-import random
+from collections import defaultdict
+
+from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, render
+from django.urls import reverse_lazy
+from django.views.decorators.http import require_POST
+from django.views.generic import FormView
+
+from .forms import SimpleUserCreationForm
+from .models import Level, PlayerLevelState, PlayerVehicle, Tile
+
 
 # AUTHENTICATION
-
 class RegisterView(FormView):
     template_name = "game/register.html"
     form_class = SimpleUserCreationForm
@@ -32,10 +26,10 @@ class RegisterView(FormView):
 
 
 # LEVEL LIST
-@login_required(login_url='/login/')
+@login_required(login_url="/login/")
 def level_list(request):
     levels = Level.objects.all()
-    return render(request, 'game/levels.html', {'levels': levels})
+    return render(request, "game/levels.html", {"levels": levels})
 
 
 # LEVEL
@@ -45,30 +39,25 @@ def initialize_player_state(user, level):
     and copy starting vehicles into PlayerVehicle if needed.
     Optimized to O(n) by minimizing database queries.
     """
-    player_state, created = PlayerLevelState.objects.get_or_create(
-        user=user, 
-        level=level
-    )
+    player_state, created = PlayerLevelState.objects.get_or_create(user=user, level=level)
 
-    level_vehicles = list(
-        level.vehicles.select_related("tile").all()
-    )
+    level_vehicles = list(level.vehicles.select_related("tile").all())
 
-    existing = set(
-        player_state.vehicles.values_list("vehicle_type", "is_enemy")
-    )
+    existing = set(player_state.vehicles.values_list("vehicle_type", "is_enemy"))
 
     to_create = []
 
     for v in level_vehicles:
         key = (v.vehicle_type, v.is_enemy)
         if key not in existing:
-            to_create.append(PlayerVehicle(
-                player_state=player_state,
-                tile=v.tile,
-                vehicle_type=v.vehicle_type,
-                is_enemy=v.is_enemy
-            ))
+            to_create.append(
+                PlayerVehicle(
+                    player_state=player_state,
+                    tile=v.tile,
+                    vehicle_type=v.vehicle_type,
+                    is_enemy=v.is_enemy,
+                )
+            )
 
     if to_create:
         PlayerVehicle.objects.bulk_create(to_create)
@@ -80,7 +69,7 @@ def get_used_tiles(level):
     return {v.tile_id for v in level.vehicles.all() if v.tile_id}
 
 
-@login_required(login_url='/login/')
+@login_required(login_url="/login/")
 def grid_view(request, level_id):
     """
     Render the grid view for a given level and user.
@@ -97,12 +86,11 @@ def grid_view(request, level_id):
     tiles = [t for t in all_tiles if t.terrain_type != "DOCK"]
     dock_tiles = [t for t in all_tiles if t.terrain_type == "DOCK"]
 
-
     grid = defaultdict(list)
     for tile in tiles:
         grid[tile.y].append(tile)
 
-    grid = dict(grid) 
+    grid = dict(grid)
 
     # Get this user's player and enemy vehicles
     player_vehicles = player_state.vehicles.filter(is_enemy=False).select_related("tile")
@@ -122,7 +110,7 @@ def grid_view(request, level_id):
     )
 
 
-@login_required(login_url='/login/')
+@login_required(login_url="/login/")
 @require_POST
 def update_vehicle_position(request, vehicle_id):
     """Handles AJAX updates for moving player vehicles."""
@@ -149,7 +137,7 @@ def update_vehicle_position(request, vehicle_id):
         return json_error(str(e), 500)
 
 
-@login_required(login_url='/login/')
+@login_required(login_url="/login/")
 def mark_game_started(request, level_id):
     """Mark the user's PlayerLevelState as started for this level."""
     if request.method == "POST":
@@ -161,30 +149,30 @@ def mark_game_started(request, level_id):
     return json_error("Invalid request", 500)
 
 
-@login_required(login_url='/login/')
+@login_required(login_url="/login/")
 @require_POST
 def reset_level(request, level_id):
     """Reset a level for the current user: game_started=False, move player vehicles back to dock."""
     try:
         level = get_object_or_404(Level, pk=level_id)
         player_state, _ = PlayerLevelState.objects.get_or_create(user=request.user, level=level)
-        dock_tiles = list(level.tiles.filter(terrain_type="DOCK").order_by('x', 'y'))
+        dock_tiles = list(level.tiles.filter(terrain_type="DOCK").order_by("x", "y"))
 
         reset_player_state(player_state, dock_tiles)
 
         return JsonResponse({"status": "ok"})
     except Exception as e:
         return json_error(str(e), 500)
-    
-    
-@login_required(login_url='/login/')
+
+
+@login_required(login_url="/login/")
 @require_POST
 def reset_level_for_all_users(request, level_id):
     """Reset a level for all players: game_started=False, move player vehicles back to dock."""
     try:
         level = get_object_or_404(Level, pk=level_id)
         # Get all dock tiles for this level
-        dock_tiles = list(level.tiles.filter(terrain_type="DOCK").order_by('x', 'y'))
+        dock_tiles = list(level.tiles.filter(terrain_type="DOCK").order_by("x", "y"))
 
         # Loop through all players who have a state for this level
         for player_state in PlayerLevelState.objects.filter(level=level):
@@ -194,8 +182,8 @@ def reset_level_for_all_users(request, level_id):
 
     except Exception as e:
         return json_error(str(e), 500)
-    
-    
+
+
 def reset_player_state(player_state, dock_tiles):
     player_state.game_started = False
     player_state.turn_number = 1
@@ -205,7 +193,7 @@ def reset_player_state(player_state, dock_tiles):
     if len(dock_tiles) < len(vehicles):
         raise ValueError("Not enough dock tiles")
 
-    for vehicle, dock_tile in zip(sorted(vehicles, key=lambda v: v.id), dock_tiles):
+    for vehicle, dock_tile in zip(sorted(vehicles, key=lambda v: v.id), dock_tiles, strict=False):
         vehicle.tile = dock_tile
         vehicle.save()
 
