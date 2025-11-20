@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
+
 class SimpleUserCreationForm(UserCreationForm):
     """
     A relaxed registration form suitable for a game:
@@ -10,6 +11,7 @@ class SimpleUserCreationForm(UserCreationForm):
     - Allows simple passwords (min 4 chars)
     - Still checks password confirmation
     """
+
     class Meta:
         model = User
         fields = ("username",)

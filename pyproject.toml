@@ -1,0 +1,10 @@
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311"]
+skip-string-normalization = false
+
+[tool.ruff]
+line-length = 100
+extend-select = ["I"]  # import sorting
+select = ["E", "F", "B", "I"]  # errors, flake8, bugbear, imports
+ignore = []  # you can add rules to ignore if needed
