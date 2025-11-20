@@ -6,5 +6,5 @@ skip-string-normalization = false
 [tool.ruff]
 line-length = 100
 extend-select = ["I"]  # import sorting
-select = ["E", "F", "B", "I"]  # errors, flake8, bugbear, imports
+select = ["E", "F", "B", "I", "Q", "N"]  # errors, flake8, bugbear, imports, quotes, naming
 ignore = []  # you can add rules to ignore if needed
