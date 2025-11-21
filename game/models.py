@@ -75,4 +75,8 @@ class PlayerVehicle(models.Model):
     health = models.IntegerField(default=100)
 
     def __str__(self):
-        return f"{'ENEMY' if self.is_enemy else 'PLAYER'} {self.vehicle_type} ({self.player_state.user.username})"
+        return (
+            f"{'ENEMY' if self.is_enemy else 'PLAYER'} "
+            f"{self.vehicle_type} "
+            f"({self.player_state.user.username})"
+        )
