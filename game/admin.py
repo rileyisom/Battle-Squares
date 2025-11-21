@@ -1,12 +1,11 @@
 # admin.py (refactored)
-from collections import defaultdict
 import random
 
 from django.contrib import admin
 from django.db import transaction
 from django.utils.html import format_html
 
-from .models import Level, Tile, StartingVehicle, PlayerVehicle, PlayerLevelState
+from .models import Level, PlayerVehicle, StartingVehicle, Tile
 
 
 @admin.register(Level)
@@ -43,16 +42,16 @@ class LevelAdmin(admin.ModelAdmin):
         Render a compact HTML preview of the map inside the admin.
         Uses select_related where appropriate to avoid N+1 queries.
         """
-        TILE_SIZE = 22
+        tile_size = 22
 
-        COLORS = {
+        colors = {
             "LAND": "#4CAF50",
             "WATER": "#2196F3",
             "DOCK": "#9E9E9E",
         }
 
         # Icon map: (vehicle_type, is_enemy) -> icon
-        VEHICLE_ICON = {
+        vehicle_icon = {
             ("TANK", False): "🟩T",
             ("BOAT", False): "🟦B",
             ("PLANE", False): "🟨P",
@@ -77,29 +76,30 @@ class LevelAdmin(admin.ModelAdmin):
             html.append('<div style="display:flex;">')
             for x in range(obj.width):
                 tile = tiles.get((x, y))
-                color = COLORS.get(tile.terrain_type, "black") if tile else "black"
+                color = colors.get(tile.terrain_type, "black") if tile else "black"
                 vehicle = vehicles.get((x, y))
 
                 if vehicle:
                     key = (vehicle.vehicle_type, vehicle.is_enemy)
-                    icon = VEHICLE_ICON.get(key, "❓")
+                    icon = vehicle_icon.get(key, "❓")
                     html.append(
-                        f'<div style="width:{TILE_SIZE}px; height:{TILE_SIZE}px; '
-                        f'background:{color}; border:2px solid #000; '
-                        f'display:flex; justify-content:center; align-items:center; '
+                        f'<div style="width:{tile_size}px; height:{tile_size}px; '
+                        f"background:{color}; border:2px solid #000; "
+                        f"display:flex; justify-content:center; align-items:center; "
                         f'font-size:14px; font-weight:bold;">{icon}</div>'
                     )
                 else:
                     html.append(
-                        f'<div style="width:{TILE_SIZE}px; height:{TILE_SIZE}px; '
+                        f'<div style="width:{tile_size}px; height:{tile_size}px; '
                         f'background:{color};"></div>'
                     )
-            html.append('</div>')
-        html.append('</div>')
-        return format_html(''.join(html))
+            html.append("</div>")
+        html.append("</div>")
+        return format_html("".join(html))
 
     def tile_count(self, obj):
         return obj.tiles.count()
+
     tile_count.short_description = "Tiles"
 
     # ----------------------
@@ -115,7 +115,8 @@ class LevelAdmin(admin.ModelAdmin):
         # Use a transaction to avoid partial state if something fails
         with transaction.atomic():
             # Remove existing tiles & vehicles (starting vehicles)
-            # Note: This preserves PlayerVehicle / PlayerLevelState records; we're regenerating the starting-level content.
+            # Note: This preserves PlayerVehicle / PlayerLevelState records;
+            # we're regenerating the starting-level content.
             level.tiles.all().delete()
             level.vehicles.all().delete()
 
@@ -146,7 +147,9 @@ class LevelAdmin(admin.ModelAdmin):
             dock_x = -1
             # Fixed count for player start dock slots (3), but you can parameterize later
             for i in range(3):
-                dock_tiles_to_create.append(Tile(level=level, x=dock_x - i, y=height, terrain_type="DOCK"))
+                dock_tiles_to_create.append(
+                    Tile(level=level, x=dock_x - i, y=height, terrain_type="DOCK")
+                )
             Tile.objects.bulk_create(dock_tiles_to_create)
 
             # 4) Reload tiles now that they have IDs
@@ -168,7 +171,11 @@ class LevelAdmin(admin.ModelAdmin):
 
             # 5) Create StartingVehicle enemy entries (single per type)
             starting_vehicle_objs = []
-            for vtype, terrain in [("ENEMY_TANK", "LAND"), ("ENEMY_BOAT", "WATER"), ("ENEMY_PLANE", None)]:
+            for vtype, terrain in [
+                ("ENEMY_TANK", "LAND"),
+                ("ENEMY_BOAT", "WATER"),
+                ("ENEMY_PLANE", None),
+            ]:
                 tile = random_tile(terrain)
                 if tile:
                     starting_vehicle_objs.append(
@@ -181,7 +188,9 @@ class LevelAdmin(admin.ModelAdmin):
             for i, vtype in enumerate(player_types):
                 if i < len(dock_tiles):
                     starting_vehicle_objs.append(
-                        StartingVehicle(level=level, tile=dock_tiles[i], vehicle_type=vtype, is_enemy=False)
+                        StartingVehicle(
+                            level=level, tile=dock_tiles[i], vehicle_type=vtype, is_enemy=False
+                        )
                     )
 
             if starting_vehicle_objs:
@@ -194,7 +203,9 @@ class LevelAdmin(admin.ModelAdmin):
     def generate_full_level(self, request, queryset):
         for level in queryset:
             self._generate_full_level(level)
-        self.message_user(request, "✅ Levels fully generated: tiles + vehicles created successfully!")
+        self.message_user(
+            request, "✅ Levels fully generated: tiles + vehicles created successfully!"
+        )
 
     # ----------------------
     # Randomize enemy vehicles action
@@ -213,7 +224,9 @@ class LevelAdmin(admin.ModelAdmin):
 
             # used_tile_ids should exclude enemy positions so we can move enemies
             used_tile_ids = set(level.vehicles.exclude(tile=None).values_list("tile_id", flat=True))
-            enemy_tile_ids = set(level.vehicles.filter(is_enemy=True).values_list("tile_id", flat=True))
+            enemy_tile_ids = set(
+                level.vehicles.filter(is_enemy=True).values_list("tile_id", flat=True)
+            )
             used_tile_ids -= enemy_tile_ids
 
             # Pull all enemy StartingVehicle objects into memory (small set)
@@ -291,18 +304,23 @@ class LevelAdmin(admin.ModelAdmin):
 
                 player_vehicles = list(ps.vehicles.filter(is_enemy=False))
                 if len(dock_tiles) < len(player_vehicles):
-                    self.message_user(request, f"Not enough dock tiles for player {ps.user.username}")
+                    self.message_user(
+                        request, f"Not enough dock tiles for player {ps.user.username}"
+                    )
                     continue
 
                 # Assign dock tiles deterministically by vehicle id order
                 updated = []
-                for vehicle, dock_tile in zip(sorted(player_vehicles, key=lambda v: v.id), dock_tiles):
+                for vehicle, dock_tile in zip(
+                    sorted(player_vehicles, key=lambda v: v.id), dock_tiles, strict=False
+                ):
                     vehicle.tile = dock_tile
                     updated.append(vehicle)
 
                 if updated:
                     PlayerVehicle.objects.bulk_update(updated, ["tile"])
         self.message_user(request, "✅ All players reset to dock.")
+
 
 # ------------------------------
 # TileAdmin
@@ -316,8 +334,12 @@ class TileAdmin(admin.ModelAdmin):
     def colored_preview(self, obj):
         color_map = {"LAND": "green", "WATER": "blue", "DOCK": "gray"}
         color = color_map.get(obj.terrain_type, "black")
-        return format_html('<div style="width:20px;height:20px;background:{};border-radius:4px;"></div>', color)
+        return format_html(
+            '<div style="width:20px;height:20px;background:{};border-radius:4px;"></div>', color
+        )
+
     colored_preview.short_description = "Preview"
+
 
 # ------------------------------
 # StartingVehicleAdmin
@@ -331,4 +353,5 @@ class StartingVehicleAdmin(admin.ModelAdmin):
 
     def terrain_type(self, obj):
         return obj.tile.terrain_type if obj.tile else "None"
+
     terrain_type.short_description = "Tile Type"
