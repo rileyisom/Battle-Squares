@@ -1,0 +1,18 @@
+<div class="grid" id="grid">
+  {% for y, row in grid.items %}
+    {% for tile in row %}
+      <div class="tile {{ tile.terrain_type }}" data-tile-id="{{ tile.id }}">
+        {% for vehicle in enemy_vehicles %}
+          {% if vehicle.tile.id == tile.id %}
+            {% include "game/grid/enemy_vehicle.html" with vehicle=vehicle %}
+          {% endif %}
+        {% endfor %}
+        {% for vehicle in player_vehicles %}
+          {% if vehicle.tile and vehicle.tile.id == tile.id and vehicle.tile.terrain_type != "DOCK" %}
+            {% include "game/grid/player_vehicle.djhtml" with vehicle=vehicle %}
+          {% endif %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% endfor %}
+</div>

@@ -1,0 +1,27 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>
+      {% block title %}
+      {% endblock title %}
+    </title>
+    <link rel="stylesheet" href="{% static 'game/grid.css' %}" />
+    <style>
+      :root {
+        --grid-width: {{ level.width }};
+      }
+    </style>
+    {% block head %}
+    {% endblock head %}
+  </head>
+  <body data-grid-width="{{ level.width }}"
+      data-update-url-base="/update_vehicle_position/"
+      data-mark-start-url="/mark_game_started/{{ level.id }}/"
+      data-reset-url="/reset_level/{{ level.id }}/"
+      data-level-id="{{ level.id }}"
+      data-game-started="{{ game_started|yesno:'true,false' }}">
+    {% block body %}
+    {% endblock body %}
+  </body>
+</html>

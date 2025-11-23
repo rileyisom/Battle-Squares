@@ -1,0 +1,8 @@
+<div id="vehicle-dock" class="dock">
+  <h3>Your Vehicles</h3>
+  {% for vehicle in player_vehicles %}
+    {% if vehicle.tile.terrain_type == "DOCK" %}
+      {% include "game/grid/player_vehicle.djhtml" with vehicle=vehicle in_dock=True %}
+    {% endif %}
+  {% endfor %}
+</div>

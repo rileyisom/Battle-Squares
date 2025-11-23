@@ -1,0 +1,11 @@
+{% load static %}
+<img
+  src="{% static 'game/blue'|add:vehicle.vehicle_type|lower|add:'.png' %}"
+  alt="{{ vehicle.vehicle_type }}"
+  class="vehicle"
+  data-vehicle-id="{{ vehicle.id }}"
+  data-vehicle-type="{{ vehicle.vehicle_type }}"
+  data-tile-id="{{ vehicle.tile.id }}"
+  {% if in_dock %}data-dock-tile-id="{{ vehicle.tile.id }}"{% endif %}
+  draggable="true" 
+/>
