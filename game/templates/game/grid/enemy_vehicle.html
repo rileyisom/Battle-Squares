@@ -1,0 +1,7 @@
+{% load static %}
+<img
+  src="{% static 'game/red'|add:vehicle.vehicle_type|cut:'ENEMY_'|lower|add:'.png' %}"
+  alt="{{ vehicle.vehicle_type }}"
+  class="vehicle"
+  draggable="false"
+/>

@@ -1,0 +1,31 @@
+{% extends "game/grid/base_grid.djhtml" %}
+{% block title %}
+  {{ level.name }}
+{% endblock title %}
+{% block body %}
+  <h1>{{ level.name }}</h1>
+  <button id="start-btn" class="btn">Start Game</button>
+  <button id="reset-btn" class="btn">Reset Game</button>
+  <div id="game-container" class="container">
+    {% include "game/grid/dock.djhtml" %}
+    {% include "game/grid/grid_board.djhtml" %}
+    <div class="side-panel"></div>
+  </div>
+  <script>
+    window.gameConfig = {
+      gridWidth: {{ level.width }},
+      levelId: {{ level.id }},
+      gameStarted: {{ game_started|yesno:"true,false" }},
+      urls: {
+        updateVehicle: "/update_vehicle_position/",
+        markStart: "/mark_game_started/{{ level.id }}/",
+        resetLevel: "/reset_level/{{ level.id }}/"
+      }
+    };
+  </script>
+  <script type="module">
+    import { GameGrid } from '/static/game/grid.js';
+    const root = document.getElementById('game-container');
+    new GameGrid(root, window.gameConfig);
+  </script>
+{% endblock body %}
