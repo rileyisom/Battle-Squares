@@ -1,0 +1,18 @@
+name: Gitleaks Scan
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # required to scan full history
+
+      - name: Run Gitleaks
+        uses: zricethezav/gitleaks-action@v2.3.4
+        with:
+          args: detect --no-git --verbose --redact
