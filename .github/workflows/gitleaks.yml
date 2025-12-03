@@ -10,11 +10,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # scan full git history
 
       - name: Run Gitleaks
         uses: zricethezav/gitleaks-action@v2.3.4
         with:
+          upload-results: false       # IMPORTANT: disable SARIF upload
           args: detect --no-git --verbose --redact --report-path=gitleaks-report.json
-          output-format: json
-
