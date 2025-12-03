@@ -10,9 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # required to scan full history
+          fetch-depth: 0
 
       - name: Run Gitleaks
         uses: zricethezav/gitleaks-action@v2.3.4
         with:
-          args: detect --no-git --verbose --redact
+          args: detect --no-git --verbose --redact --report-path=gitleaks-report.json
+          output-format: json
+
