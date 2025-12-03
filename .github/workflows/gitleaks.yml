@@ -10,10 +10,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # scan full git history
+          fetch-depth: 0  # scan full history
+
+      - name: Install Gitleaks
+        run: |
+          curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest \
+            | grep browser_download_url \
+            | grep linux_x64.tar.gz \
+            | cut -d '"' -f 4 \
+            | wget -qi -
+          tar -xzf gitleaks_*_linux_x64.tar.gz
+          sudo mv gitleaks /usr/local/bin/
 
       - name: Run Gitleaks
-        uses: zricethezav/gitleaks-action@v2.3.4
+        run: |
+          gitleaks detect --verbose --redact --report-format=json --report-path=gitleaks-report.json
+
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
         with:
-          upload-results: false       # IMPORTANT: disable SARIF upload
-          args: detect --no-git --verbose --redact --report-path=gitleaks-report.json
+          name: gitleaks-report
+          path: gitleaks-report.json
