@@ -37,8 +37,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "tailwind",
-    "theme",
     "game",
 ]
 
@@ -130,5 +128,3 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_REDIRECT_URL = "level-list"
 LOGOUT_REDIRECT_URL = "login"
-
-TAILWIND_APP_NAME = "theme"
