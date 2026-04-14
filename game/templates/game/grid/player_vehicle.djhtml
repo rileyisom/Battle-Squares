@@ -2,7 +2,7 @@
 <img
   src="{% static 'game/blue'|add:vehicle.vehicle_type|lower|add:'.png' %}"
   alt="{{ vehicle.vehicle_type }}"
-  class="vehicle"
+  class="vehicle {% if in_dock %}relative w-10 h-10{% else %}absolute top-0 left-0 w-full h-full{% endif %} object-contain cursor-grab"
   data-vehicle-id="{{ vehicle.id }}"
   data-vehicle-type="{{ vehicle.vehicle_type }}"
   data-tile-id="{{ vehicle.tile.id }}"
