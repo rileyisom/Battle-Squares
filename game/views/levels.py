@@ -6,5 +6,5 @@ from ..models import Level
 
 @login_required(login_url="/login/")
 def level_list(request):
-    levels = Level.objects.all()
+    levels = Level.objects.all().order_by('id')
     return render(request, "game/levels.html", {"levels": levels})

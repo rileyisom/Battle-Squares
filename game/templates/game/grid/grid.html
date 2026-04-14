@@ -3,13 +3,19 @@
   {{ level.name }}
 {% endblock title %}
 {% block body %}
-  <h1>{{ level.name }}</h1>
-  <button id="start-btn" class="btn">Start Game</button>
-  <button id="reset-btn" class="btn">Reset Game</button>
-  <div id="game-container" class="container">
+  <h1 class="mt-5">{{ level.name }}</h1>
+  <button id="start-btn"
+          class="py-2 px-4 mt-[10px] text-base rounded-md bg-blue-500 text-white cursor-pointer disabled:bg-gray-500 disabled:cursor-not-allowed">
+    Start Game
+  </button>
+  <button id="reset-btn"
+          class="py-2 px-4 mt-[10px] text-base rounded-md bg-blue-500 text-white cursor-pointer disabled:bg-gray-500 disabled:cursor-not-allowed">
+    Reset Game
+  </button>
+  <div id="game-container" class="flex justify-center gap-[30px] items-start mt-5">
     {% include "game/grid/dock.djhtml" %}
     {% include "game/grid/grid_board.djhtml" %}
-    <div class="side-panel"></div>
+    <div class="w-[150px] text-white p-[10px]"></div>
   </div>
   <script>
     window.gameConfig = {

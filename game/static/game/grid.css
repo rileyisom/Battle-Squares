@@ -1,151 +1,44 @@
-      body {
-        background-color: #222;
-        color: white;
-        font-family: sans-serif;
-        text-align: center;
-        margin: 0;
-        padding: 0;
-      }
+/* Tile pseudo-element overlay for drop feedback */
+.tile::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  pointer-events: none;
+  transition: box-shadow 0.1s ease;
+}
 
-      h1 {
-        margin-top: 20px;
-      }
+.tile.valid-drop::before {
+  box-shadow: 0 0 0 3px limegreen;
+}
 
-      .btn {
-        padding: 8px 16px;
-        font-size: 16px;
-        border: none;
-        border-radius: 6px;
-        background-color: #007bff;
-        color: white;
-        cursor: pointer;
-        margin-top: 10px;
-      }
-      
-      .btn:disabled {
-        background-color: gray;
-        cursor: not-allowed;
-      }
+.tile.invalid-drop::before {
+  box-shadow: 0 0 0 3px red;
+}
 
-      /* Main wrapper */
-      .container {
-        display: flex;
-        justify-content: center;
-        gap: 30px;      /* spacing between dock & grid */
-        align-items: flex-start;
-        margin-top: 20px;
-      }
+/* Terrain colors — applied dynamically via Django template */
+.tile.WATER {
+  background-color: #4fc3f7;
+}
 
-      /* #grid-container {
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-        flex-direction: row;
-      } */
+.tile.LAND {
+  background-color: #81c784;
+}
 
-      /* Grid itself */
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(var(--grid-width), 40px);
-        grid-auto-rows: 40px;
-        gap: 2px;
-        background-color: #333;
-        padding: 5px;
-        border-radius: 8px;
-      }
+/* JS-toggled drop state */
+.tile.valid-drop {
+  z-index: 10;
+}
 
-      .side-panel {
-        width: 150px;
-        color: white;
-        padding: 10px;
-      }
+.tile.invalid-drop {
+  z-index: 10;
+}
 
-      .tile {
-        width: 40px;
-        height: 40px;
-        position: relative;
-        border: 1px solid #444;
-      }
-      
-      /* .tile.drag-over::before {
-        box-shadow: 0 0 0 3px yellow;
-      } */
-      .tile.valid-drop::before {
-        box-shadow: 0 0 0 3px limegreen;
-      }
-      .tile.invalid-drop::before {
-        box-shadow: 0 0 0 3px red;
-      }
-
-      .tile.WATER {
-        background-color: #4fc3f7;
-      }
-
-      .tile.LAND {
-        background-color: #81c784;
-      }
-
-      .tile::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
-        border-radius: 4px;
-        pointer-events: none; /* important: don’t block drag/drop */
-        transition: box-shadow 0.1s ease;
-      }
-
-      /* .tile.drag-over {
-        z-index: 10;
-      } */
-
-      .tile.valid-drop {
-        z-index: 10;
-      }
-
-      .tile.invalid-drop {
-        z-index: 10;
-      }
-
-      /* Vehicle Dock */
-      #vehicle-dock {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        
-        width: 120px;
-        padding: 10px;
-        gap: 8px;
-
-        border: 2px dashed #666;
-        background-color: #444;
-        border-radius: 8px;
-      }
-
-      #vehicle-dock h3 {
-        margin: 0 0 8px 0;
-        font-size: 14px;
-        color: white;
-      }
-
-      /* Vehicles look identical everywhere */
-      .vehicle {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        cursor: grab;
-        position: absolute;
-        top: 0;
-        left: 0;
-      }
-
-      #vehicle-dock .vehicle {
-        position: relative;
-        width: 40px;
-        height: 40px;
-      }
-
-      .vehicle.dragging {
-        opacity: 0.5;
-        cursor: grabbing;
-      }
+/* JS-toggled dragging state — class added/removed by grid.js at runtime */
+.vehicle.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}

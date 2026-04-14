@@ -1,12 +1,32 @@
-<h1>Select a Level</h1>
+{% load static tailwind_tags %}
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Select a Level</title>
+    {% tailwind_css %}
+  </head>
+  <body class="bg-[#222] text-white font-sans min-h-screen flex flex-col items-center pt-16 gap-8">
 
-<form method="post" action="{% url 'logout' %}">
-  {% csrf_token %}
-  <button type="submit">Logout</button>
-</form>
+    <h1 class="text-3xl font-bold">Select a Level</h1>
 
-<ul>
-  {% for level in levels %}
-  <li><a href="{% url 'grid' level.id %}">{{ level.name }}</a></li>
-  {% endfor %}
-</ul>
+    <ul class="flex flex-col gap-3 w-64">
+      {% for level in levels %}
+      <li>
+        <a href="{% url 'grid' level.id %}"
+           class="block py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white text-center rounded-md font-semibold">
+          {{ level.name }}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <form method="post" action="{% url 'logout' %}">
+      {% csrf_token %}
+      <button type="submit"
+              class="py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-md cursor-pointer">
+        Logout
+      </button>
+    </form>
+
+  </body>
+</html>

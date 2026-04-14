@@ -1,4 +1,4 @@
-{% load static %}
+{% load static tailwind_tags %}
 <!DOCTYPE html>
 <html>
   <head>
@@ -6,6 +6,7 @@
       {% block title %}
       {% endblock title %}
     </title>
+    {% tailwind_css %}
     <link rel="stylesheet" href="{% static 'game/grid.css' %}" />
     <style>
       :root {
@@ -15,12 +16,17 @@
     {% block head %}
     {% endblock head %}
   </head>
-  <body data-grid-width="{{ level.width }}"
-      data-update-url-base="/update_vehicle_position/"
-      data-mark-start-url="/mark_game_started/{{ level.id }}/"
-      data-reset-url="/reset_level/{{ level.id }}/"
-      data-level-id="{{ level.id }}"
-      data-game-started="{{ game_started|yesno:'true,false' }}">
+  <body class="bg-[#222] text-white font-sans text-center"
+        data-grid-width="{{ level.width }}"
+        data-update-url-base="/update_vehicle_position/"
+        data-mark-start-url="/mark_game_started/{{ level.id }}/"
+        data-reset-url="/reset_level/{{ level.id }}/"
+        data-level-id="{{ level.id }}"
+        data-game-started="{{ game_started|yesno:'true,false' }}">
+    <a href="{% url 'level-list' %}"
+       class="fixed top-4 left-4 py-2 px-4 bg-[#444] hover:bg-[#555] text-white text-sm font-semibold rounded-md">
+      ← Levels
+    </a>
     {% block body %}
     {% endblock body %}
   </body>

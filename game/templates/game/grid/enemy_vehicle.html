@@ -2,6 +2,6 @@
 <img
   src="{% static 'game/red'|add:vehicle.vehicle_type|cut:'ENEMY_'|lower|add:'.png' %}"
   alt="{{ vehicle.vehicle_type }}"
-  class="vehicle"
+  class="vehicle absolute top-0 left-0 w-full h-full object-contain"
   draggable="false"
 />

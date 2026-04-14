@@ -1,7 +1,7 @@
-<div class="grid" id="grid">
+<div class="grid grid-cols-[repeat(var(--grid-width),40px)] auto-rows-[40px] gap-[2px] bg-[#333] p-[5px] rounded-lg" id="grid">
   {% for y, row in grid.items %}
     {% for tile in row %}
-      <div class="tile {{ tile.terrain_type }}" data-tile-id="{{ tile.id }}">
+      <div class="tile {{ tile.terrain_type }} w-10 h-10 relative border border-[#444]" data-tile-id="{{ tile.id }}">
         {% for vehicle in enemy_vehicles %}
           {% if vehicle.tile.id == tile.id %}
             {% include "game/grid/enemy_vehicle.html" with vehicle=vehicle %}

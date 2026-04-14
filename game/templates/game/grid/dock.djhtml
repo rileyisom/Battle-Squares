@@ -1,5 +1,5 @@
-<div id="vehicle-dock" class="dock">
-  <h3>Your Vehicles</h3>
+<div id="vehicle-dock" class="flex flex-col items-center w-[120px] p-[10px] gap-2 border-2 border-dashed border-[#666] bg-[#444] rounded-lg">
+  <h3 class="mb-2 text-sm text-white">Your Vehicles</h3>
   {% for vehicle in player_vehicles %}
     {% if vehicle.tile.terrain_type == "DOCK" %}
       {% include "game/grid/player_vehicle.djhtml" with vehicle=vehicle in_dock=True %}
