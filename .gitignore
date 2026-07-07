@@ -24,6 +24,9 @@ ENV/
 node_modules/
 dist/
 
+# e2e check output (regenerated each run)
+e2e/screenshots/*.png
+
 # Mac / Windows
 .DS_Store
 Thumbs.db
