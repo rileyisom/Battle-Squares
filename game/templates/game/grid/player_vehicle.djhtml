@@ -6,6 +6,14 @@
   data-vehicle-id="{{ vehicle.id }}"
   data-vehicle-type="{{ vehicle.vehicle_type }}"
   data-tile-id="{{ vehicle.tile.id }}"
+  data-is-enemy="false"
+  data-health="{{ vehicle.health }}"
+  data-max-health="{{ vehicle.max_health }}"
   {% if in_dock %}data-dock-tile-id="{{ vehicle.tile.id }}"{% endif %}
-  draggable="true" 
+  draggable="true"
 />
+{% if not in_dock %}
+  <div class="health-bar" data-health-bar-for="{{ vehicle.id }}">
+    <div class="health-bar-fill" style="width: {{ vehicle.health_pct }}%;"></div>
+  </div>
+{% endif %}

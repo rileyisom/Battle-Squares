@@ -1,6 +1,13 @@
 # AUTHENTICATION
 # API
-from .api import mark_game_started, update_vehicle_position
+from .api import (
+    attack,
+    end_turn,
+    mark_game_started,
+    move_vehicle,
+    update_vehicle_position,
+    vehicle_actions,
+)
 from .auth import RegisterView
 
 # GRID
@@ -22,4 +29,8 @@ __all__ = [
     "mark_game_started",
     "reset_level",
     "reset_level_for_all_users",
+    "vehicle_actions",
+    "move_vehicle",
+    "attack",
+    "end_turn",
 ]

@@ -51,10 +51,25 @@ class StartingVehicle(models.Model):
 
 
 class PlayerLevelState(models.Model):
+    class Phase(models.TextChoices):
+        PLAYER = "PLAYER", "Player"
+        ENEMY = "ENEMY", "Enemy"
+
+    class Status(models.TextChoices):
+        IN_PROGRESS = "IN_PROGRESS", "In Progress"
+        WON = "WON", "Won"
+        LOST = "LOST", "Lost"
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     level = models.ForeignKey("Level", on_delete=models.CASCADE)
     game_started = models.BooleanField(default=False)
     turn_number = models.IntegerField(default=1)
+    current_phase = models.CharField(
+        max_length=10, choices=Phase.choices, default=Phase.PLAYER
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.IN_PROGRESS
+    )
 
     class Meta:
         unique_together = ("user", "level")
@@ -73,6 +88,7 @@ class PlayerVehicle(models.Model):
     vehicle_type = models.CharField(max_length=20, choices=StartingVehicle.VehicleType.choices)
     is_enemy = models.BooleanField(default=False)
     health = models.IntegerField(default=100)
+    has_acted = models.BooleanField(default=False)
 
     def __str__(self):
         return (

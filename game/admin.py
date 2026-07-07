@@ -1,11 +1,12 @@
-# admin.py (refactored)
+# admin.py
 import random
 
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db import transaction
 from django.utils.html import format_html
 
 from .models import Level, PlayerVehicle, StartingVehicle, Tile
+from .services.player_state import reset_player_state
 
 
 @admin.register(Level)
@@ -103,14 +104,116 @@ class LevelAdmin(admin.ModelAdmin):
     tile_count.short_description = "Tiles"
 
     # ----------------------
+    # Grid generation helpers
+    # ----------------------
+    _MAX_GRID_ATTEMPTS = 10
+
+    def _generate_grid(self, width, height):
+        """Produce one candidate grid (no validation)."""
+        grid = [["WATER" for _ in range(width)] for _ in range(height)]
+        num_islands = max(1, (width * height) // 50)
+        for _ in range(num_islands):
+            island_x = random.randint(1, max(1, width - 2))
+            island_y = random.randint(1, max(1, height - 2))
+            island_size = random.randint(3, 6)
+            for y in range(island_y - island_size, island_y + island_size + 1):
+                for x in range(island_x - island_size, island_x + island_size + 1):
+                    if 0 <= x < width and 0 <= y < height:
+                        distance = ((x - island_x) ** 2 + (y - island_y) ** 2) ** 0.5
+                        if distance < island_size * random.uniform(0.6, 1.0):
+                            grid[y][x] = "LAND"
+        return grid
+
+    def _grid_meets_zone_requirements(self, grid, width, height):
+        """
+        Return True only if both the top 40% and bottom 40% of rows each contain
+        at least 25% of all land tiles and at least 25% of all water tiles.
+        """
+        top_cutoff = int(height * 0.4)
+        bottom_start = height - int(height * 0.4)
+
+        total_land = sum(1 for y in range(height) for x in range(width) if grid[y][x] == "LAND")
+        total_water = sum(1 for y in range(height) for x in range(width) if grid[y][x] == "WATER")
+
+        if total_land == 0 or total_water == 0:
+            return False
+
+        land_top = sum(1 for y in range(top_cutoff) for x in range(width) if grid[y][x] == "LAND")
+        land_bottom = sum(
+            1 for y in range(bottom_start, height) for x in range(width) if grid[y][x] == "LAND"
+        )
+        water_top = sum(1 for y in range(top_cutoff) for x in range(width) if grid[y][x] == "WATER")
+        water_bottom = sum(
+            1 for y in range(bottom_start, height) for x in range(width) if grid[y][x] == "WATER"
+        )
+
+        return (
+            land_top / total_land >= 0.25
+            and land_bottom / total_land >= 0.25
+            and water_top / total_water >= 0.25
+            and water_bottom / total_water >= 0.25
+        )
+
+    # ----------------------
     # Core generator (single-level) — extracted helper
     # ----------------------
     def _generate_full_level(self, level):
         """
         Generate tiles and starting vehicles for a single level.
         This runs inside the admin and is used by both save_model and the admin action.
+        Raises ValueError if a valid grid cannot be produced within _MAX_GRID_ATTEMPTS tries.
         """
         width, height = level.width, level.height
+
+        # Retry grid generation until zone-distribution requirements are met.
+        for _ in range(self._MAX_GRID_ATTEMPTS):
+            grid = self._generate_grid(width, height)
+            if self._grid_meets_zone_requirements(grid, width, height):
+                break
+        else:
+            raise ValueError(
+                f'Could not generate a valid grid for "{level.name}" after '
+                f"{self._MAX_GRID_ATTEMPTS} attempts. "
+                "Each zone (top 40% / bottom 40%) requires at least 25% of all land "
+                "and 25% of all water tiles. Try a larger grid."
+            )
+
+        top_cutoff = int(height * 0.4)
+        bottom_start = height - int(height * 0.4)
+        total_land = sum(1 for y in range(height) for x in range(width) if grid[y][x] == "LAND")
+        total_water = sum(1 for y in range(height) for x in range(width) if grid[y][x] == "WATER")
+        land_top_pct = (
+            100
+            * sum(1 for y in range(top_cutoff) for x in range(width) if grid[y][x] == "LAND")
+            // total_land
+        )
+        land_bot_pct = (
+            100
+            * sum(
+                1 for y in range(bottom_start, height) for x in range(width) if grid[y][x] == "LAND"
+            )
+            // total_land
+        )
+        water_top_pct = (
+            100
+            * sum(1 for y in range(top_cutoff) for x in range(width) if grid[y][x] == "WATER")
+            // total_water
+        )
+        water_bot_pct = (
+            100
+            * sum(
+                1
+                for y in range(bottom_start, height)
+                for x in range(width)
+                if grid[y][x] == "WATER"
+            )
+            // total_water
+        )
+        print(
+            f"[{level.name}] Grid generated — "
+            f"Land: top {land_top_pct}% / bot {land_bot_pct}%  |  "
+            f"Water: top {water_top_pct}% / bot {water_bot_pct}%"
+        )
 
         # Use a transaction to avoid partial state if something fails
         with transaction.atomic():
@@ -119,20 +222,6 @@ class LevelAdmin(admin.ModelAdmin):
             # we're regenerating the starting-level content.
             level.tiles.all().delete()
             level.vehicles.all().delete()
-
-            # 1) Generate base grid
-            grid = [["WATER" for _ in range(width)] for _ in range(height)]
-            num_islands = max(1, (width * height) // 50)
-            for _ in range(num_islands):
-                island_x = random.randint(1, max(1, width - 2))
-                island_y = random.randint(1, max(1, height - 2))
-                island_size = random.randint(3, 6)
-                for y in range(island_y - island_size, island_y + island_size + 1):
-                    for x in range(island_x - island_size, island_x + island_size + 1):
-                        if 0 <= x < width and 0 <= y < height:
-                            distance = ((x - island_x) ** 2 + (y - island_y) ** 2) ** 0.5
-                            if distance < island_size * random.uniform(0.6, 1.0):
-                                grid[y][x] = "LAND"
 
             # 2) Bulk create tiles for the grid
             tiles_to_create = [
@@ -152,60 +241,94 @@ class LevelAdmin(admin.ModelAdmin):
                 )
             Tile.objects.bulk_create(dock_tiles_to_create)
 
-            # 4) Reload tiles now that they have IDs
-            all_tiles = list(level.tiles.all())
-            land_tiles = [t for t in all_tiles if t.terrain_type == "LAND"]
-            water_tiles = [t for t in all_tiles if t.terrain_type == "WATER"]
-            plain_tiles = [t for t in all_tiles if t.terrain_type != "DOCK"]
-            dock_tiles = [t for t in all_tiles if t.terrain_type == "DOCK"]
-            used_tile_ids = set()
+            # 4) Get dock tiles for player vehicle placement
+            dock_tiles = list(level.tiles.filter(terrain_type="DOCK"))
 
-            def random_tile(terrain=None):
-                if terrain == "LAND":
-                    candidates = [t for t in land_tiles if t.id not in used_tile_ids]
-                elif terrain == "WATER":
-                    candidates = [t for t in water_tiles if t.id not in used_tile_ids]
-                else:
-                    candidates = [t for t in plain_tiles if t.id not in used_tile_ids]
-                return random.choice(candidates) if candidates else None
-
-            # 5) Create StartingVehicle enemy entries (single per type)
-            starting_vehicle_objs = []
-            for vtype, terrain in [
-                ("ENEMY_TANK", "LAND"),
-                ("ENEMY_BOAT", "WATER"),
-                ("ENEMY_PLANE", None),
-            ]:
-                tile = random_tile(terrain)
-                if tile:
-                    starting_vehicle_objs.append(
-                        StartingVehicle(level=level, tile=tile, vehicle_type=vtype, is_enemy=True)
-                    )
-                    used_tile_ids.add(tile.id)
+            # 5) Place enemy StartingVehicles via shared helper
+            self._place_enemy_vehicles(level)
 
             # 6) Create StartingVehicle player entries at the dock
-            player_types = ["TANK", "BOAT", "PLANE"]
-            for i, vtype in enumerate(player_types):
+            player_starting_vehicles = []
+            for i, vtype in enumerate(["TANK", "BOAT", "PLANE"]):
                 if i < len(dock_tiles):
-                    starting_vehicle_objs.append(
+                    player_starting_vehicles.append(
                         StartingVehicle(
                             level=level, tile=dock_tiles[i], vehicle_type=vtype, is_enemy=False
                         )
                     )
+            if player_starting_vehicles:
+                StartingVehicle.objects.bulk_create(player_starting_vehicles)
 
-            if starting_vehicle_objs:
-                StartingVehicle.objects.bulk_create(starting_vehicle_objs)
+    # ----------------------
+    # Enemy vehicle placement helper (shared by generation and randomization)
+    # ----------------------
+    def _place_enemy_vehicles(self, level):
+        """
+        Pick tiles for each enemy vehicle type, respecting terrain and zone constraints,
+        then replace all existing enemy StartingVehicle records for the level.
+
+        Placement rules (all enemies restricted to the top 40% of rows):
+          - ENEMY_TANK: random LAND tile in the top 40%
+          - ENEMY_BOAT: random WATER tile in the top 40%
+          - ENEMY_PLANE: random non-DOCK tile in the top 40%
+        """
+        top_cutoff = int(level.height * 0.4)
+        tiles = list(level.tiles.exclude(terrain_type="DOCK"))
+        land_tiles = [t for t in tiles if t.terrain_type == "LAND"]
+        water_tiles = [t for t in tiles if t.terrain_type == "WATER"]
+
+        used_tile_ids = set()
+        enemy_vehicle_objs = []
+
+        for vtype, terrain, top_zone_only in [
+            ("ENEMY_TANK", "LAND", True),
+            ("ENEMY_BOAT", "WATER", True),
+            ("ENEMY_PLANE", None, True),
+        ]:
+            if terrain == "LAND":
+                candidates = [t for t in land_tiles if t.id not in used_tile_ids]
+            elif terrain == "WATER":
+                candidates = [t for t in water_tiles if t.id not in used_tile_ids]
+            else:
+                candidates = [t for t in tiles if t.id not in used_tile_ids]
+
+            if top_zone_only:
+                candidates = [t for t in candidates if t.y < top_cutoff]
+
+            if not candidates:
+                continue
+
+            tile = random.choice(candidates)
+            enemy_vehicle_objs.append(
+                StartingVehicle(level=level, tile=tile, vehicle_type=vtype, is_enemy=True)
+            )
+            used_tile_ids.add(tile.id)
+
+        level.vehicles.filter(is_enemy=True).delete()
+        if enemy_vehicle_objs:
+            StartingVehicle.objects.bulk_create(enemy_vehicle_objs)
 
     # ----------------------
     # Admin action wrappers
     # ----------------------
     @admin.action(description="Generate full level (tiles + vehicles)")
     def generate_full_level(self, request, queryset):
+        succeeded, failed = [], []
         for level in queryset:
-            self._generate_full_level(level)
-        self.message_user(
-            request, "✅ Levels fully generated: tiles + vehicles created successfully!"
-        )
+            try:
+                self._generate_full_level(level)
+                succeeded.append(level.name)
+            except ValueError as e:
+                failed.append(str(e))
+
+        if succeeded:
+            self.message_user(
+                request,
+                f'Levels fully generated: {", ".join(succeeded)}',
+                messages.SUCCESS,
+            )
+        for error in failed:
+            self.message_user(request, error, messages.ERROR)
 
     # ----------------------
     # Randomize enemy vehicles action
@@ -216,42 +339,8 @@ class LevelAdmin(admin.ModelAdmin):
             # Reset players first (to ensure no collisions)
             self.reset_all_players(request, [level])
 
-            # Pre-categorize tiles
-            tiles = list(level.tiles.all())
-            land_tiles = [t for t in tiles if t.terrain_type == "LAND"]
-            water_tiles = [t for t in tiles if t.terrain_type == "WATER"]
-            valid_tiles = [t for t in tiles if t.terrain_type != "DOCK"]
-
-            # used_tile_ids should exclude enemy positions so we can move enemies
-            used_tile_ids = set(level.vehicles.exclude(tile=None).values_list("tile_id", flat=True))
-            enemy_tile_ids = set(
-                level.vehicles.filter(is_enemy=True).values_list("tile_id", flat=True)
-            )
-            used_tile_ids -= enemy_tile_ids
-
-            # Pull all enemy StartingVehicle objects into memory (small set)
-            enemy_starting_vehicles = list(level.vehicles.filter(is_enemy=True))
-
-            updated_vehicles = []
-            for sv in enemy_starting_vehicles:
-                if sv.vehicle_type == "ENEMY_TANK":
-                    candidates = [t for t in land_tiles if t.id not in used_tile_ids]
-                elif sv.vehicle_type == "ENEMY_BOAT":
-                    candidates = [t for t in water_tiles if t.id not in used_tile_ids]
-                else:
-                    candidates = [t for t in valid_tiles if t.id not in used_tile_ids]
-
-                if not candidates:
-                    continue
-
-                new_tile = random.choice(candidates)
-                sv.tile = new_tile
-                updated_vehicles.append(sv)
-                used_tile_ids.add(new_tile.id)
-
-            # Bulk-update StartingVehicle positions where possible
-            if updated_vehicles:
-                StartingVehicle.objects.bulk_update(updated_vehicles, ["tile"])
+            # Re-place all enemy StartingVehicles using the shared placement logic
+            self._place_enemy_vehicles(level)
 
             # Sync the new enemy positions to all players
             self.sync_enemy_player_vehicles(level)
@@ -298,27 +387,12 @@ class LevelAdmin(admin.ModelAdmin):
 
             # Iterate through each player's PlayerLevelState
             for ps in level.playerlevelstate_set.all():
-                ps.game_started = False
-                ps.turn_number = 1
-                ps.save()
-
-                player_vehicles = list(ps.vehicles.filter(is_enemy=False))
-                if len(dock_tiles) < len(player_vehicles):
+                try:
+                    reset_player_state(ps, dock_tiles)
+                except ValueError:
                     self.message_user(
                         request, f"Not enough dock tiles for player {ps.user.username}"
                     )
-                    continue
-
-                # Assign dock tiles deterministically by vehicle id order
-                updated = []
-                for vehicle, dock_tile in zip(
-                    sorted(player_vehicles, key=lambda v: v.id), dock_tiles, strict=False
-                ):
-                    vehicle.tile = dock_tile
-                    updated.append(vehicle)
-
-                if updated:
-                    PlayerVehicle.objects.bulk_update(updated, ["tile"])
         self.message_user(request, "✅ All players reset to dock.")
 
 

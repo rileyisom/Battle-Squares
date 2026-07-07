@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
 
 from ..models import Level
+from ..services import combat
 from ..services.player_state import initialize_player_state
 
 
@@ -31,8 +32,16 @@ def grid_view(request, level_id):
     grid = dict(grid)
 
     # Get this user's player and enemy vehicles
-    player_vehicles = player_state.vehicles.filter(is_enemy=False).select_related("tile")
-    enemy_vehicles = player_state.vehicles.filter(is_enemy=True).select_related("tile")
+    player_vehicles = list(
+        player_state.vehicles.filter(is_enemy=False).select_related("tile")
+    )
+    enemy_vehicles = list(
+        player_state.vehicles.filter(is_enemy=True).select_related("tile")
+    )
+    for vehicle in player_vehicles + enemy_vehicles:
+        max_health = combat.vehicle_stats(vehicle.vehicle_type)["max_health"]
+        vehicle.max_health = max_health
+        vehicle.health_pct = max(0, min(100, round(100 * vehicle.health / max_health)))
 
     return render(
         request,
@@ -44,5 +53,8 @@ def grid_view(request, level_id):
             "enemy_vehicles": enemy_vehicles,
             "game_started": player_state.game_started,
             "dock_tiles": dock_tiles,
+            "current_phase": player_state.current_phase,
+            "status": player_state.status,
+            "turn_number": player_state.turn_number,
         },
     )

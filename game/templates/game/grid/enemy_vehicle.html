@@ -3,5 +3,14 @@
   src="{% static 'game/red'|add:vehicle.vehicle_type|cut:'ENEMY_'|lower|add:'.png' %}"
   alt="{{ vehicle.vehicle_type }}"
   class="vehicle absolute top-0 left-0 w-full h-full object-contain"
+  data-vehicle-id="{{ vehicle.id }}"
+  data-vehicle-type="{{ vehicle.vehicle_type }}"
+  data-tile-id="{{ vehicle.tile.id }}"
+  data-is-enemy="true"
+  data-health="{{ vehicle.health }}"
+  data-max-health="{{ vehicle.max_health }}"
   draggable="false"
 />
+<div class="health-bar" data-health-bar-for="{{ vehicle.id }}">
+  <div class="health-bar-fill" style="width: {{ vehicle.health_pct }}%;"></div>
+</div>

@@ -5,12 +5,16 @@ from django.urls import path
 
 from .views import (
     RegisterView,
+    attack,
+    end_turn,
     grid_view,
     level_list,
     mark_game_started,
+    move_vehicle,
     reset_level,
     reset_level_for_all_users,
     update_vehicle_position,
+    vehicle_actions,
 )
 
 urlpatterns = [
@@ -38,6 +42,11 @@ urlpatterns = [
         reset_level_for_all_users,
         name="reset_level_all",
     ),
+    # --- Combat ---
+    path("vehicle_actions/<int:vehicle_id>/", vehicle_actions, name="vehicle_actions"),
+    path("move_vehicle/<int:vehicle_id>/", move_vehicle, name="move_vehicle"),
+    path("attack/<int:vehicle_id>/", attack, name="attack"),
+    path("end_turn/<int:level_id>/", end_turn, name="end_turn"),
 ]
 
 urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

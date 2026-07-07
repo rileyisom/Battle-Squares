@@ -12,20 +12,42 @@
           class="py-2 px-4 mt-[10px] text-base rounded-md bg-blue-500 text-white cursor-pointer disabled:bg-gray-500 disabled:cursor-not-allowed">
     Reset Game
   </button>
+  <button id="end-turn-btn"
+          class="py-2 px-4 mt-[10px] text-base rounded-md bg-green-600 text-white cursor-pointer disabled:bg-gray-500 disabled:cursor-not-allowed hidden">
+    End Turn
+  </button>
+  <p id="turn-indicator" class="mt-2 text-sm text-gray-300 hidden"></p>
   <div id="game-container" class="flex justify-center gap-[30px] items-start mt-5">
     {% include "game/grid/dock.djhtml" %}
     {% include "game/grid/grid_board.djhtml" %}
     <div class="w-[150px] text-white p-[10px]"></div>
   </div>
+  <div id="game-over-banner" class="hidden">
+    <div class="bg-[#333] p-8 rounded-lg text-center">
+      <h2 id="game-over-message" class="text-2xl font-bold mb-4"></h2>
+      <a href="{% url 'level-list' %}"
+         class="py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-md font-semibold">
+        Back to Levels
+      </a>
+    </div>
+  </div>
   <script>
     window.gameConfig = {
       gridWidth: {{ level.width }},
+      gridHeight: {{ level.height }},
       levelId: {{ level.id }},
       gameStarted: {{ game_started|yesno:"true,false" }},
+      currentPhase: "{{ current_phase }}",
+      gameStatus: "{{ status }}",
+      turnNumber: {{ turn_number }},
       urls: {
         updateVehicle: "/update_vehicle_position/",
         markStart: "/mark_game_started/{{ level.id }}/",
-        resetLevel: "/reset_level/{{ level.id }}/"
+        resetLevel: "/reset_level/{{ level.id }}/",
+        vehicleActions: "/vehicle_actions/",
+        moveVehicle: "/move_vehicle/",
+        attack: "/attack/",
+        endTurn: "/end_turn/{{ level.id }}/"
       }
     };
   </script>
