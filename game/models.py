@@ -96,3 +96,9 @@ class PlayerVehicle(models.Model):
             f"{self.vehicle_type} "
             f"({self.player_state.user.username})"
         )
+
+    @property
+    def sprite_filename(self):
+        base_type = self.vehicle_type.removeprefix("ENEMY_")
+        color = "red" if self.is_enemy else "blue"
+        return f"{color}{base_type.capitalize()}Sprite.png"

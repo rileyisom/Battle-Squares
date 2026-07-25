@@ -1,6 +1,6 @@
 {% load static %}
 <img
-  src="{% static 'game/red'|add:vehicle.vehicle_type|cut:'ENEMY_'|lower|add:'.png' %}"
+  src="{% static 'Sprites/Vehicles/'|add:vehicle.sprite_filename %}"
   alt="{{ vehicle.vehicle_type }}"
   class="vehicle absolute top-0 left-0 w-full h-full object-contain"
   data-vehicle-id="{{ vehicle.id }}"

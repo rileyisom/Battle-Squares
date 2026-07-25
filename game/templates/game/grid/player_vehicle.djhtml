@@ -1,6 +1,6 @@
 {% load static %}
 <img
-  src="{% static 'game/blue'|add:vehicle.vehicle_type|lower|add:'.png' %}"
+  src="{% static 'Sprites/Vehicles/'|add:vehicle.sprite_filename %}"
   alt="{{ vehicle.vehicle_type }}"
   class="vehicle {% if in_dock %}relative w-10 h-10{% else %}absolute top-0 left-0 w-full h-full{% endif %} object-contain cursor-grab"
   data-vehicle-id="{{ vehicle.id }}"
