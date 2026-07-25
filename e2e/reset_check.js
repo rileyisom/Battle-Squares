@@ -10,7 +10,7 @@ const { chromium } = require('playwright');
 
   await page.goto('http://127.0.0.1:8000/login/');
   await page.fill('input[name="username"]', 'combattest');
-  await page.fill('input[name="password"]', '***REMOVED-PASSWORD***');
+  await page.fill('input[name="password"]', 'combattest-e2e-local');
   await page.click('button[type="submit"]');
   await page.waitForURL('**/', { timeout: 10000 });
 

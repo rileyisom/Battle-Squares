@@ -35,7 +35,7 @@ from game.services.player_state import initialize_player_state, reset_player_sta
 
 LEVEL_ID = 24
 USERNAME = "combattest"
-PASSWORD = "***REMOVED-PASSWORD***"
+PASSWORD = "combattest-e2e-local"
 
 
 def get_test_state():
