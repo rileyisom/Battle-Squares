@@ -32,6 +32,7 @@ export class GameGrid {
     this._bindUI();
     this._bindDragDrop();
     this._applyInitialState();
+    this._updateStartButtonVisibility();
   }
 
   // ---------- INITIALIZE ----------
@@ -79,6 +80,12 @@ export class GameGrid {
       this.vehicles.forEach((v) => (v.draggable = false));
       this._enterBattleMode();
     }
+  }
+
+  _updateStartButtonVisibility() {
+    if (this.gameStarted) return;
+    const allPlaced = this.dock.querySelectorAll('.vehicle[data-vehicle-type]').length === 0;
+    this.startBtn.classList.toggle('hidden', !allPlaced);
   }
 
   // ---------- BATTLE MODE ----------
@@ -317,6 +324,7 @@ export class GameGrid {
     if (target.id === 'vehicle-dock') {
       vehicle.dataset.tileId = vehicle.dataset.dockTileId;
       target.appendChild(vehicle);
+      this._updateStartButtonVisibility();
       return;
     }
 
@@ -330,6 +338,7 @@ export class GameGrid {
 
     target.appendChild(vehicle);
     vehicle.dataset.tileId = target.dataset.tileId || null;
+    this._updateStartButtonVisibility();
   }
 
   // ---------- GAME ACTIONS ----------
