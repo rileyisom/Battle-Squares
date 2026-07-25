@@ -20,6 +20,7 @@ export class GameGrid {
     this.turnIndicator = document.getElementById('turn-indicator');
     this.gameOverBanner = document.getElementById('game-over-banner');
     this.gameOverMessage = document.getElementById('game-over-message');
+    this.retryBtn = document.getElementById('retry-btn');
     this.gridEl = document.getElementById('grid');
     this.tiles = this.root.querySelectorAll('.tile');
     this.dock = document.getElementById('vehicle-dock');
@@ -58,6 +59,7 @@ export class GameGrid {
     this.startBtn.addEventListener('click', () => this.startGame());
     this.resetBtn.addEventListener('click', () => this.resetLevel());
     this.endTurnBtn.addEventListener('click', () => this.endTurn());
+    this.retryBtn.addEventListener('click', () => this.resetLevel());
   }
 
   _bindDragDrop() {
