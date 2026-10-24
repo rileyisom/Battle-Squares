@@ -12,6 +12,8 @@ export class GameGrid {
     this.gameStatus = config.gameStatus || 'IN_PROGRESS';
     this.turnNumber = config.turnNumber || 1;
     this.selectedVehicleEl = null;
+    this.selectedInfo = null;
+    this.selectedTargetCount = 0;
     // Shot forecasts for the selected vehicle, keyed by target id.
     this.forecasts = new Map();
 
@@ -179,9 +181,9 @@ export class GameGrid {
       if (tile) tile.classList.add('in-attack-range');
     });
 
-    if (result.targets.length === 0) {
-      this._showPanelMessage('No targets in range.');
-    }
+    this.selectedInfo = result.vehicle || null;
+    this.selectedTargetCount = result.targets.length;
+    this._renderVehicleInfo();
 
     result.targets.forEach((forecast) => {
       this.forecasts.set(String(forecast.target_id), forecast);
@@ -196,6 +198,8 @@ export class GameGrid {
   _clearSelection() {
     if (this.selectedVehicleEl) this.selectedVehicleEl.classList.remove('selected');
     this.selectedVehicleEl = null;
+    this.selectedInfo = null;
+    this.selectedTargetCount = 0;
     this.forecasts.clear();
     this._renderForecast(null);
     this.root
@@ -211,11 +215,50 @@ export class GameGrid {
 
   // ---------- SHOT FORECAST ----------
   _onBoardHover(e) {
-    if (!this.selectedVehicleEl || this.forecasts.size === 0) return;
+    if (!this.selectedVehicleEl) return;
     const vehicleEl = e.target.closest('.vehicle[data-vehicle-id]');
     const id =
       vehicleEl && vehicleEl.dataset.isEnemy === 'true' ? vehicleEl.dataset.vehicleId : null;
-    this._renderForecast(id ? this.forecasts.get(id) : null);
+    const forecast = id ? this.forecasts.get(id) : null;
+    // Fall back to the selected unit's own card rather than blanking, so the
+    // panel always explains what the highlights on the board mean.
+    if (forecast) this._renderForecast(forecast);
+    else this._renderVehicleInfo();
+  }
+
+  _renderVehicleInfo() {
+    if (!this.infoPanel) return;
+    const info = this.selectedInfo;
+    if (!info) {
+      this.infoPanel.innerHTML = '';
+      return;
+    }
+
+    // Spelled out because move and attack range differ for some types (the
+    // plane can fly a ring further than it can shoot), which otherwise reads
+    // as the game refusing to target a perfectly reachable enemy.
+    const splitRange =
+      info.move_range !== info.attack_range
+        ? `<div class="unit-hint">Moves ${info.move_range}, shoots ${info.attack_range} — only the shaded tiles are in firing range.</div>`
+        : '';
+    const noTargets =
+      this.selectedTargetCount === 0 ? `<div class="unit-hint">No targets in range.</div>` : '';
+
+    this.infoPanel.innerHTML = `
+      <div class="forecast">
+        <div class="unit-name">${info.type.replace('_', ' ')}</div>
+        <div class="forecast-row">
+          <span>HP</span><strong>${info.health}/${info.max_health}</strong>
+        </div>
+        <div class="forecast-row">
+          <span>Move</span><strong>${info.move_range}</strong>
+        </div>
+        <div class="forecast-row">
+          <span>Shoot</span><strong>${info.attack_range}</strong>
+        </div>
+        ${splitRange}${noTargets}
+      </div>
+    `;
   }
 
   _renderForecast(forecast) {

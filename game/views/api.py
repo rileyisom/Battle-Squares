@@ -96,9 +96,18 @@ def vehicle_actions(request, vehicle_id):
             player_state.vehicles.filter(is_enemy=False).select_related("tile")
         )
 
+        stats = combat.vehicle_stats(vehicle.vehicle_type)
+
         return JsonResponse(
             {
                 "status": "ok",
+                "vehicle": {
+                    "type": vehicle.vehicle_type,
+                    "health": vehicle.health,
+                    "max_health": stats["max_health"],
+                    "move_range": stats["move_range"],
+                    "attack_range": stats["attack_range"],
+                },
                 "moves": [t.id for t in moves],
                 "attack_tiles": [
                     t.id for t in combat.tiles_in_attack_range(vehicle, board_tiles)

@@ -109,6 +109,21 @@
   line-height: 1.4;
 }
 
+.unit-name {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-bottom: 4px;
+}
+
+.unit-hint {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid #444;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #aaa;
+}
+
 /* --- Shot forecast panel --- */
 .forecast {
   background: rgba(0, 0, 0, 0.35);
