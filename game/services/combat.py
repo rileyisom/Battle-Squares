@@ -73,7 +73,22 @@ def vehicle_stats(vehicle_type):
 
 
 def manhattan(tile_a, tile_b):
+    """Orthogonal steps only — a diagonal neighbour is two tiles away."""
     return abs(tile_a.x - tile_b.x) + abs(tile_a.y - tile_b.y)
+
+
+def chebyshev(tile_a, tile_b):
+    """King moves — a diagonal neighbour is one tile away, same as orthogonal."""
+    return max(abs(tile_a.x - tile_b.x), abs(tile_a.y - tile_b.y))
+
+
+# The metric behind all movement, targeting and AI distance checks. Chebyshev
+# because a diagonally adjacent enemy *looks* adjacent on the board, and under
+# Manhattan it silently wasn't — players read that as the game ignoring their
+# clicks. Swap this alias to `manhattan` to go back; nothing else needs to
+# change, but keep every caller on the same metric or the enemy AI will
+# misjudge its own range.
+distance = chebyshev
 
 
 def _terrain_allowed(vehicle_type, terrain_type):
@@ -93,7 +108,7 @@ def valid_move_tiles(vehicle, all_tiles, occupied_tile_ids):
     for tile in all_tiles:
         if tile.id == origin.id or tile.id in occupied_tile_ids:
             continue
-        if manhattan(origin, tile) > stats["move_range"]:
+        if distance(origin, tile) > stats["move_range"]:
             continue
         if not _terrain_allowed(vehicle.vehicle_type, tile.terrain_type):
             continue
@@ -106,8 +121,7 @@ def tiles_in_attack_range(vehicle, all_tiles):
     Every board tile this vehicle could strike from where it stands.
 
     Shown in the UI so the reach of an attack is visible even when nothing is
-    standing in it — otherwise a diagonally-adjacent enemy looks attackable
-    when Manhattan distance actually puts it two tiles away.
+    standing in it, which is what makes the shape of a unit's range legible.
     """
     stats = vehicle_stats(vehicle.vehicle_type)
     origin = vehicle.tile
@@ -116,7 +130,7 @@ def tiles_in_attack_range(vehicle, all_tiles):
     return [
         tile
         for tile in all_tiles
-        if tile.id != origin.id and manhattan(origin, tile) <= stats["attack_range"]
+        if tile.id != origin.id and distance(origin, tile) <= stats["attack_range"]
     ]
 
 
@@ -126,7 +140,7 @@ def valid_attack_targets(vehicle, opposing_vehicles):
     return [
         target
         for target in opposing_vehicles
-        if target.tile and manhattan(origin, target.tile) <= stats["attack_range"]
+        if target.tile and distance(origin, target.tile) <= stats["attack_range"]
     ]
 
 
@@ -178,7 +192,7 @@ def _flank_score(attacker, defender, allies):
     adjacent = sum(
         1
         for ally in allies
-        if ally.pk != attacker.pk and ally.tile and manhattan(ally.tile, defender.tile) == 1
+        if ally.pk != attacker.pk and ally.tile and distance(ally.tile, defender.tile) == 1
     )
     if adjacent >= 2:
         return 1.0
@@ -202,11 +216,11 @@ def damage_band(attacker, defender, allies=()):
 
     attack_range = max(stats["attack_range"], 1)
     if attacker.tile and defender.tile:
-        distance = manhattan(attacker.tile, defender.tile)
+        gap = distance(attacker.tile, defender.tile)
     else:
-        distance = attack_range
+        gap = attack_range
     # Point blank is the cleanest shot; the edge of your range is the worst.
-    range_q = min(max(1.0 - (distance - 1) / attack_range, 0.0), 1.0)
+    range_q = min(max(1.0 - (gap - 1) / attack_range, 0.0), 1.0)
 
     raw_quality = (
         QUALITY_WEIGHTS["range"] * range_q
@@ -338,7 +352,7 @@ def run_enemy_turn(player_state):
         if not player_vehicles:
             break
 
-        nearest = min(player_vehicles, key=lambda p: manhattan(enemy.tile, p.tile))
+        nearest = min(player_vehicles, key=lambda p: distance(enemy.tile, p.tile))
         targets = valid_attack_targets(enemy, [nearest])
 
         if targets:
@@ -357,12 +371,12 @@ def run_enemy_turn(player_state):
         if not candidates:
             continue
 
-        current_distance = manhattan(enemy.tile, nearest.tile)
-        closer = [c for c in candidates if manhattan(c, nearest.tile) < current_distance]
+        current_distance = distance(enemy.tile, nearest.tile)
+        closer = [c for c in candidates if distance(c, nearest.tile) < current_distance]
         if not closer:
             continue
 
-        best_tile = min(closer, key=lambda t: manhattan(t, nearest.tile))
+        best_tile = min(closer, key=lambda t: distance(t, nearest.tile))
         enemy.tile = best_tile
         enemy.save()
 
