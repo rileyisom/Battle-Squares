@@ -93,8 +93,20 @@
   cursor: pointer;
 }
 
+/* Attack reach of the selected unit. Uses ::before's background rather than
+   its box-shadow so it stacks with the valid-move/valid-target outlines
+   instead of fighting them, and paints under the vehicle sprite. */
+.tile.in-attack-range::before {
+  background: rgba(230, 45, 45, 0.32);
+}
+
 .tile.valid-target::before {
   box-shadow: 0 0 0 3px orangered;
+}
+
+.panel-message {
+  color: #bbb;
+  line-height: 1.4;
 }
 
 /* --- Shot forecast panel --- */

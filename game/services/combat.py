@@ -101,6 +101,25 @@ def valid_move_tiles(vehicle, all_tiles, occupied_tile_ids):
     return moves
 
 
+def tiles_in_attack_range(vehicle, all_tiles):
+    """
+    Every board tile this vehicle could strike from where it stands.
+
+    Shown in the UI so the reach of an attack is visible even when nothing is
+    standing in it — otherwise a diagonally-adjacent enemy looks attackable
+    when Manhattan distance actually puts it two tiles away.
+    """
+    stats = vehicle_stats(vehicle.vehicle_type)
+    origin = vehicle.tile
+    if origin is None:
+        return []
+    return [
+        tile
+        for tile in all_tiles
+        if tile.id != origin.id and manhattan(origin, tile) <= stats["attack_range"]
+    ]
+
+
 def valid_attack_targets(vehicle, opposing_vehicles):
     stats = vehicle_stats(vehicle.vehicle_type)
     origin = vehicle.tile

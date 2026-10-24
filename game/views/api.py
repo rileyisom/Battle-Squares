@@ -100,6 +100,9 @@ def vehicle_actions(request, vehicle_id):
             {
                 "status": "ok",
                 "moves": [t.id for t in moves],
+                "attack_tiles": [
+                    t.id for t in combat.tiles_in_attack_range(vehicle, board_tiles)
+                ],
                 "targets": [
                     combat.attack_forecast(vehicle, target, allies) for target in targets
                 ],

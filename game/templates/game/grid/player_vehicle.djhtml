@@ -2,7 +2,7 @@
 <img
   src="{% static 'Sprites/Vehicles/'|add:vehicle.sprite_filename %}"
   alt="{{ vehicle.vehicle_type }}"
-  class="vehicle {% if in_dock %}relative w-10 h-10{% else %}absolute top-0 left-0 w-full h-full{% endif %} object-contain cursor-grab"
+  class="vehicle {% if in_dock %}relative w-10 h-10{% else %}absolute top-0 left-0 w-full h-full{% endif %} object-contain cursor-grab{% if vehicle.has_acted and not in_dock %} acted{% endif %}"
   data-vehicle-id="{{ vehicle.id }}"
   data-vehicle-type="{{ vehicle.vehicle_type }}"
   data-tile-id="{{ vehicle.tile.id }}"

@@ -130,10 +130,18 @@ export class GameGrid {
         this._attack(vehicleEl);
         return;
       }
+      // Clicked an enemy that can't be reached — say so instead of just
+      // dropping the selection, which reads as the click being ignored.
+      this._showPanelMessage('Out of attack range. Shaded tiles show this unit’s reach.');
+      return;
     }
 
     if (vehicleEl && vehicleEl.dataset.isEnemy === 'false') {
-      if (vehicleEl.classList.contains('acted')) return;
+      if (vehicleEl.classList.contains('acted')) {
+        this._clearSelection();
+        this._showPanelMessage('That vehicle has already acted this turn.');
+        return;
+      }
       this._selectVehicle(vehicleEl);
       return;
     }
@@ -152,7 +160,11 @@ export class GameGrid {
     const result = await response.json();
 
     this._clearSelection();
-    if (result.status !== 'ok') return;
+    if (result.status !== 'ok') {
+      // Surface the reason rather than appearing inert.
+      this._showPanelMessage(result.message || 'That vehicle cannot act right now.');
+      return;
+    }
 
     this.selectedVehicleEl = vehicleEl;
     vehicleEl.classList.add('selected');
@@ -161,6 +173,15 @@ export class GameGrid {
       const tile = this.root.querySelector(`.tile[data-tile-id='${tileId}']`);
       if (tile) tile.classList.add('valid-move');
     });
+
+    (result.attack_tiles || []).forEach((tileId) => {
+      const tile = this.root.querySelector(`.tile[data-tile-id='${tileId}']`);
+      if (tile) tile.classList.add('in-attack-range');
+    });
+
+    if (result.targets.length === 0) {
+      this._showPanelMessage('No targets in range.');
+    }
 
     result.targets.forEach((forecast) => {
       this.forecasts.set(String(forecast.target_id), forecast);
@@ -178,8 +199,14 @@ export class GameGrid {
     this.forecasts.clear();
     this._renderForecast(null);
     this.root
-      .querySelectorAll('.valid-move, .valid-target')
-      .forEach((t) => t.classList.remove('valid-move', 'valid-target'));
+      .querySelectorAll('.valid-move, .valid-target, .in-attack-range')
+      .forEach((t) => t.classList.remove('valid-move', 'valid-target', 'in-attack-range'));
+  }
+
+  _showPanelMessage(text) {
+    if (!this.infoPanel) return;
+    this.infoPanel.innerHTML = `<div class="panel-message"></div>`;
+    this.infoPanel.firstChild.textContent = text;
   }
 
   // ---------- SHOT FORECAST ----------
