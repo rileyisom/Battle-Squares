@@ -12,6 +12,8 @@ export class GameGrid {
     this.gameStatus = config.gameStatus || 'IN_PROGRESS';
     this.turnNumber = config.turnNumber || 1;
     this.selectedVehicleEl = null;
+    // Shot forecasts for the selected vehicle, keyed by target id.
+    this.forecasts = new Map();
 
     // Bottom 40% starts at this row index (matches admin.py: height - int(height * 0.4))
     this.bottomZoneStart = this.gridHeight - Math.floor(this.gridHeight * 0.4);
@@ -23,6 +25,7 @@ export class GameGrid {
     this.gameOverBanner = document.getElementById('game-over-banner');
     this.gameOverMessage = document.getElementById('game-over-message');
     this.retryBtn = document.getElementById('retry-btn');
+    this.infoPanel = document.getElementById('info-panel');
     this.gridEl = document.getElementById('grid');
     this.tiles = this.root.querySelectorAll('.tile');
     this.dock = document.getElementById('vehicle-dock');
@@ -96,6 +99,7 @@ export class GameGrid {
     this.turnIndicator.classList.remove('hidden');
     this._updateTurnIndicator();
     document.addEventListener('click', (e) => this._onBoardClick(e));
+    document.addEventListener('mouseover', (e) => this._onBoardHover(e));
 
     if (this.gameStatus !== 'IN_PROGRESS') {
       this._showGameOver(this.gameStatus);
@@ -158,8 +162,11 @@ export class GameGrid {
       if (tile) tile.classList.add('valid-move');
     });
 
-    result.targets.forEach((targetId) => {
-      const targetVehicle = this.root.querySelector(`.vehicle[data-vehicle-id='${targetId}']`);
+    result.targets.forEach((forecast) => {
+      this.forecasts.set(String(forecast.target_id), forecast);
+      const targetVehicle = this.root.querySelector(
+        `.vehicle[data-vehicle-id='${forecast.target_id}']`
+      );
       const tile = targetVehicle ? targetVehicle.closest('.tile') : null;
       if (tile) tile.classList.add('valid-target');
     });
@@ -168,9 +175,63 @@ export class GameGrid {
   _clearSelection() {
     if (this.selectedVehicleEl) this.selectedVehicleEl.classList.remove('selected');
     this.selectedVehicleEl = null;
+    this.forecasts.clear();
+    this._renderForecast(null);
     this.root
       .querySelectorAll('.valid-move, .valid-target')
       .forEach((t) => t.classList.remove('valid-move', 'valid-target'));
+  }
+
+  // ---------- SHOT FORECAST ----------
+  _onBoardHover(e) {
+    if (!this.selectedVehicleEl || this.forecasts.size === 0) return;
+    const vehicleEl = e.target.closest('.vehicle[data-vehicle-id]');
+    const id =
+      vehicleEl && vehicleEl.dataset.isEnemy === 'true' ? vehicleEl.dataset.vehicleId : null;
+    this._renderForecast(id ? this.forecasts.get(id) : null);
+  }
+
+  _renderForecast(forecast) {
+    if (!this.infoPanel) return;
+
+    if (!forecast) {
+      this.infoPanel.innerHTML = '';
+      return;
+    }
+
+    // Quality is what the aim minigame will key off: a high-quality shot has a
+    // tight band and a wide crit window, so it is forgiving to aim.
+    const quality = Math.round(forecast.quality * 100);
+    const qualityClass = quality >= 70 ? 'q-high' : quality >= 45 ? 'q-mid' : 'q-low';
+    const critWindow = Math.round(forecast.crit_window * 100);
+    const lethality = {
+      certain: ['Lethal', 'text-green-400'],
+      likely: ['Can finish', 'text-yellow-300'],
+      crit_only: ['Lethal on crit', 'text-orange-300'],
+      no: ['Not lethal', 'text-gray-400'],
+    }[forecast.lethality] || ['', 'text-gray-400'];
+
+    this.infoPanel.innerHTML = `
+      <div class="forecast">
+        <div class="forecast-row">
+          <span>Damage</span><strong>${forecast.min}–${forecast.max}</strong>
+        </div>
+        <div class="forecast-row">
+          <span>Crit</span><strong>${forecast.crit_damage}</strong>
+        </div>
+        <div class="forecast-row">
+          <span>Crit window</span><strong>${critWindow}%</strong>
+        </div>
+        <div class="forecast-row">
+          <span>Target HP</span><strong>${forecast.target_health}</strong>
+        </div>
+        <div class="forecast-quality">
+          <div class="forecast-quality-fill ${qualityClass}" style="width: ${quality}%"></div>
+        </div>
+        <div class="forecast-quality-label">Shot quality ${quality}%</div>
+        <div class="forecast-lethality ${lethality[1]}">${lethality[0]}</div>
+      </div>
+    `;
   }
 
   async _move(tileEl) {

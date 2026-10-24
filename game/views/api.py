@@ -92,11 +92,17 @@ def vehicle_actions(request, vehicle_id):
         )
         targets = combat.valid_attack_targets(vehicle, enemies)
 
+        allies = list(
+            player_state.vehicles.filter(is_enemy=False).select_related("tile")
+        )
+
         return JsonResponse(
             {
                 "status": "ok",
                 "moves": [t.id for t in moves],
-                "targets": [v.id for v in targets],
+                "targets": [
+                    combat.attack_forecast(vehicle, target, allies) for target in targets
+                ],
             }
         )
     except ValueError as e:

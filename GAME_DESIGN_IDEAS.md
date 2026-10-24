@@ -66,13 +66,13 @@ Bonus: **enemy accuracy becomes the difficulty dial.** Enemy attacks go through 
 - **Return fire** — attacking a survivor that has you in *its* range draws a ~50% counterpunch. Highest-leverage single change: it makes attacking a risk instead of a freebie, and it makes the existing range stats finally matter (a boat at range 2 safely shells a range-1 tank; the tank must close and eat a hit).
 - **Move *and* attack with a penalty** — currently move XOR attack. Allowing both, with firing-after-moving widening the band, creates the classic tension: hold still for a strong shot or reposition for a weak one. Cheaper than full action points and gets most of the value.
 - **Type matchups** — a clean triangle at 1.5×: Plane → Boat, Boat → Tank, Tank → Plane. Gives each unit identity; pairs naturally with existing terrain rules.
-- **Terrain as cover** — a `_terrain_defense()` beside the existing `_terrain_allowed()`. Land gives tanks cover, open water leaves boats exposed, docks are fortified.
+- **Terrain as cover** — land gives the defender cover, open water leaves them exposed. Note that DOCK tiles carry no combat meaning at all: they are purely a pre-game staging area for placing vehicles, and are off the board once a battle starts. Never give them gameplay weight.
 - **Hit feedback** — floating damage numbers, flash/shake on crit, animated health bars. Currently a hit silently decrements a number. Deliberately called out as *under-weighted*: much of "combat feels flat" is feedback, not mechanics, and this is the cheapest fix with zero balance risk.
 - **Smarter enemy targeting** — the AI picks `nearest` and only ever considers attacking that unit, so it'll chip a healthy tank while a 10hp plane sits in range. Prefer kills, then lowest HP.
 
 ### Proposed build order
-1. `damage_band` + `resolve_damage` + the `accuracy` wire protocol — the seam, with auto-resolve (0.5) as the only "minigame". Nothing visibly changes yet; this is pure groundwork.
-2. Forecast UI — widen `vehicle_actions`' `targets` to `{id, min, max, crit_chance, lethal}` and show it on hover. Makes the band legible before any minigame exists.
+1. ~~`damage_band` + `resolve_damage` + the `accuracy` wire protocol — the seam, with auto-resolve (0.5) as the only "minigame"~~ — done. Calibrated so an auto-resolved neutral shot deals exactly the old flat damage, so balance was unchanged.
+2. ~~Forecast UI — widen `vehicle_actions`' `targets` to a forecast object and show it on hover~~ — done. Renders in the previously-empty side panel next to the board.
 3. Hit feedback (floating numbers, crit flash). Cheap, immediately improves feel, independent of everything else.
 4. The oscillating-gun minigame as the first real `AimMinigame`.
 5. Return fire, then type matchups, then move-and-attack. Re-balance after each — return fire alone will shift things a lot.

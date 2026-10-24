@@ -27,8 +27,10 @@ COUNTERS = {"TANK": "PLANE", "PLANE": "BOAT", "BOAT": "TANK"}
 
 # Damage reduction granted to a defender standing on this terrain. Planes are
 # airborne and ignore cover entirely — that, plus their lower HP, is what
-# distinguishes them defensively.
-TERRAIN_COVER = {"WATER": 0.0, "LAND": 0.15, "DOCK": 0.25}
+# distinguishes them defensively. DOCK is deliberately absent: dock tiles are
+# only a pre-game staging area for placing vehicles and are never part of the
+# board once a battle starts, so they carry no combat meaning.
+TERRAIN_COVER = {"WATER": 0.0, "LAND": 0.15}
 
 # Band width, as a fraction below the ceiling, interpolated by shot quality.
 MAX_SPREAD = 0.60  # worst-case shot: anything from 40% of ceiling upward
@@ -218,6 +220,38 @@ def resolve_damage(band, accuracy):
         return {"damage": band["crit_damage"], "is_crit": True}
     damage = _lerp(band["min"], band["max"], accuracy)
     return {"damage": max(1, round(damage)), "is_crit": False}
+
+
+def attack_forecast(attacker, defender, allies=()):
+    """
+    What the UI shows before the player commits to a shot.
+
+    Derived from the same `damage_band` used to resolve the attack, so the
+    forecast can never promise something the resolution won't honour.
+    `crit_window` is the share of the aim range that crits — with a skill-based
+    minigame it's the size of the window you have to hit, not a probability.
+    """
+    band = damage_band(attacker, defender, allies)
+
+    if band["min"] >= defender.health:
+        lethality = "certain"
+    elif band["max"] >= defender.health:
+        lethality = "likely"
+    elif band["crit_damage"] >= defender.health:
+        lethality = "crit_only"
+    else:
+        lethality = "no"
+
+    return {
+        "target_id": defender.id,
+        "min": band["min"],
+        "max": band["max"],
+        "crit_damage": band["crit_damage"],
+        "crit_window": round(band["crit_zone"], 3),
+        "quality": band["quality"],
+        "target_health": defender.health,
+        "lethality": lethality,
+    }
 
 
 def apply_damage(attacker, defender, accuracy=DEFAULT_ACCURACY, allies=()):

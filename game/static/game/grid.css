@@ -97,6 +97,63 @@
   box-shadow: 0 0 0 3px orangered;
 }
 
+/* --- Shot forecast panel --- */
+.forecast {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.forecast-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  line-height: 1.5;
+}
+
+.forecast-row span {
+  color: #aaa;
+}
+
+.forecast-quality {
+  height: 5px;
+  margin-top: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* Colour tracks the value, not the bar's width — a low-quality shot has to
+   read as red even though its fill is short. */
+.forecast-quality-fill {
+  height: 100%;
+  transition: width 0.12s ease;
+}
+
+.forecast-quality-fill.q-low {
+  background: #e05a3c;
+}
+
+.forecast-quality-fill.q-mid {
+  background: #e0c23c;
+}
+
+.forecast-quality-fill.q-high {
+  background: #5ad04f;
+}
+
+.forecast-quality-label {
+  margin-top: 3px;
+  font-size: 11px;
+  color: #aaa;
+}
+
+.forecast-lethality {
+  margin-top: 6px;
+  font-weight: 600;
+}
+
 #game-over-banner {
   position: fixed;
   top: 0;
