@@ -2,10 +2,15 @@ import math
 
 from ..models import PlayerLevelState, PlayerVehicle
 
+# Move ranges are halved relative to the pre-Chebyshev values (2/3/4), because
+# switching metrics doubled the reachable area at the same range number. These
+# land close to the original footprints — BOAT is identical, PLANE slightly
+# roomier, TANK slightly tighter — while keeping PLANE > BOAT > TANK so each
+# type still has a distinct mobility identity.
 VEHICLE_STATS = {
-    "TANK": {"max_health": 100, "move_range": 2, "attack_range": 1, "damage": 25},
-    "BOAT": {"max_health": 100, "move_range": 3, "attack_range": 2, "damage": 20},
-    "PLANE": {"max_health": 75, "move_range": 4, "attack_range": 2, "damage": 30},
+    "TANK": {"max_health": 100, "move_range": 1, "attack_range": 1, "damage": 25},
+    "BOAT": {"max_health": 100, "move_range": 2, "attack_range": 2, "damage": 20},
+    "PLANE": {"max_health": 75, "move_range": 3, "attack_range": 2, "damage": 30},
 }
 
 # --- Damage tuning -------------------------------------------------------

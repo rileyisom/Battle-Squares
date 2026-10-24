@@ -9,7 +9,7 @@ Running log of gameplay/design ideas discussed for this project. Newest entries 
 
 ## Combat loop (built 2026-07-06)
 - Decisions: alternating turns (player acts with any/all units, then End Turn hands the phase to enemy AI), simple fixed damage per vehicle type (no matchup multipliers yet), full-elimination win/loss.
-- Placeholder balance numbers (tune later): TANK 100hp/move2/range1/dmg25, BOAT 100hp/move3/range2/dmg20, PLANE 75hp/move4/range2/dmg30.
+- Placeholder balance numbers (tune later): TANK 100hp/move1/range1/dmg25, BOAT 100hp/move2/range2/dmg20, PLANE 75hp/move3/range2/dmg30. Move ranges were halved from 2/3/4 on 2026-10-24 to offset the Chebyshev switch doubling reachable area.
 - ~~Movement/targeting use Manhattan distance~~ — switched to Chebyshev on 2026-10-24 (see below). Still no pathfinding/obstruction: a tile in range is reachable if it's empty and legal terrain. Revisit if it hurts the feel once islands get more maze-like.
 - Enemy AI is a simple greedy heuristic: attack the nearest player unit if in range, else step toward it. No target prioritization (e.g. lowest-health, highest-threat) yet — worth revisiting once there's more than one enemy type interacting per level.
 - e2e regression scripts for this loop live in `e2e/` (Playwright) — see `e2e/README.md`.
@@ -82,11 +82,11 @@ Movement, targeting and the enemy AI all use Chebyshev distance (diagonals cost 
 
 Consequences, deliberately accepted:
 - **Everything doubles.** Reachable area at the same range value is exactly 2× for both movement and attacks: TANK move 12→24 tiles, BOAT 24→48, PLANE 40→80; TANK attack 4→8, BOAT/PLANE 12→24.
-- PLANE move 4 now covers 80 tiles of a 10×10 board, i.e. very nearly the whole map. Move ranges were *not* retuned, so this is the most likely thing to feel wrong first — a plane effectively ignores positioning.
-- Faster engagement is probably a net positive: under Manhattan you spent several turns just walking toward the enemy, which is part of why combat felt flat.
 - Keep every caller on one metric. If attack range and the AI's distance check disagree, the AI misjudges when it can fire.
 
-Open: whether to cut move ranges (roughly halving the area) to compensate — e.g. TANK 2→1, BOAT 3→2, PLANE 4→2 or 3. Worth playing a level first.
+Move ranges were then halved to 1/2/3 to compensate, landing close to the original footprints (TANK 12→8 tiles, BOAT 24→24, PLANE 40→48) while preserving PLANE > BOAT > TANK. **Attack ranges were left alone, so attack reach is still 2× what it was** — that is the intended part of the change, since making diagonals work was the whole point.
+
+Watch item from this retune: area is a misleading measure for TANK. Chebyshev move 1 allows a maximum displacement of one tile per turn, where Manhattan move 2 allowed two. Crossing a 10×10 board goes from 5 turns to 9, and with move-XOR-attack a tank now spends most of a match walking. If it feels sluggish, the fix is TANK move back to 2 (24 tiles, 5 turns) — it ties BOAT on raw area, but the two barely compete for space anyway since one is land-locked and the other water-locked, and their real identities are reach and damage rather than mobility.
 
 ### Open questions
 - Should enemy attacks get a *defensive* minigame (a "brace" reaction)? Leaning no — it doubles interaction count and slows enemy turns, which is exactly where repetition fatigue bites hardest.
