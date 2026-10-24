@@ -1,3 +1,5 @@
+import math
+
 from ..models import PlayerLevelState, PlayerVehicle
 
 VEHICLE_STATS = {
@@ -5,6 +7,58 @@ VEHICLE_STATS = {
     "BOAT": {"max_health": 100, "move_range": 3, "attack_range": 2, "damage": 20},
     "PLANE": {"max_health": 75, "move_range": 4, "attack_range": 2, "damage": 30},
 }
+
+# --- Damage tuning -------------------------------------------------------
+# Damage is a *band*, not a fixed number. Tactics (type matchup, terrain,
+# range, flanking) decide where the band's ceiling sits and how wide it is;
+# the attacker's aim accuracy decides where inside the band the shot lands.
+# A strong position yields a high ceiling and a tight band, so even a sloppy
+# shot lands well. A weak one yields a wide band with a low floor — good aim
+# can rescue it, but it's a gamble.
+
+CRIT_MULTIPLIER = 1.25  # applied to the ceiling, so crits stay in band's orbit
+PEAK_BONUS = 1.2  # a perfectly aimed shot exceeds the old flat damage by this much
+
+MATCHUP_MULTIPLIER = 1.5  # attacker counters the defender
+MATCHUP_PENALTY = 0.75  # defender counters the attacker
+
+# Each base type counters exactly one other, in a cycle.
+COUNTERS = {"TANK": "PLANE", "PLANE": "BOAT", "BOAT": "TANK"}
+
+# Damage reduction granted to a defender standing on this terrain. Planes are
+# airborne and ignore cover entirely — that, plus their lower HP, is what
+# distinguishes them defensively.
+TERRAIN_COVER = {"WATER": 0.0, "LAND": 0.15, "DOCK": 0.25}
+
+# Band width, as a fraction below the ceiling, interpolated by shot quality.
+MAX_SPREAD = 0.60  # worst-case shot: anything from 40% of ceiling upward
+MIN_SPREAD = 0.15  # best-case shot: reliably near the ceiling
+
+# Share of the top of the accuracy range that counts as a critical hit, also
+# interpolated by shot quality — good positioning widens the crit window.
+MIN_CRIT_ZONE = 0.03
+MAX_CRIT_ZONE = 0.22
+
+# Contribution of each factor to overall shot quality. Must sum to 1.0.
+QUALITY_WEIGHTS = {"range": 0.30, "matchup": 0.30, "cover": 0.20, "flank": 0.20}
+
+# The worst score each factor can contribute. Needed because no real shot ever
+# scores 0 overall (a neutral matchup alone is 0.5), so the raw weighted score
+# only spans ~0.33-1.0. Normalizing against that range is what lets the spread
+# and crit-window knobs above actually reach their endpoints in play.
+QUALITY_FACTOR_MIN = {
+    "range": 0.0,
+    "matchup": 0.25,
+    "cover": 1.0 - max(TERRAIN_COVER.values()),
+    "flank": 0.5,
+}
+_QUALITY_RAW_MIN = sum(QUALITY_WEIGHTS[k] * QUALITY_FACTOR_MIN[k] for k in QUALITY_WEIGHTS)
+
+# Accuracy of an auto-resolved shot: lands mid-band. Used when no aim minigame
+# has run (accessibility/fast-forward) and as the enemy AI's skill level, which
+# is the natural difficulty dial — raise it on later levels.
+DEFAULT_ACCURACY = 0.5
+ENEMY_ACCURACY = 0.5
 
 
 def base_type(vehicle_type):
@@ -55,15 +109,141 @@ def valid_attack_targets(vehicle, opposing_vehicles):
     ]
 
 
-def apply_damage(attacker, defender):
-    """Returns True if defender was destroyed."""
+def _lerp(a, b, t):
+    return a + (b - a) * t
+
+
+def parse_accuracy(value):
+    """
+    Validate an untrusted aim accuracy from a request body.
+
+    Accuracy is a single normalized float: 0.0 is the worst possible shot, 1.0
+    a perfect one. Keeping it abstract is what makes the aim minigame
+    pluggable — any future minigame only has to produce this one number, and
+    the server never has to know which one ran. Raises ValueError on garbage.
+    """
+    if value is None:
+        return DEFAULT_ACCURACY
+    # bool is an int subclass, so reject it explicitly.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError("Accuracy must be a number between 0 and 1.")
+    if not math.isfinite(value):
+        raise ValueError("Accuracy must be a number between 0 and 1.")
+    return min(max(float(value), 0.0), 1.0)
+
+
+def _cover(defender):
+    """Damage reduction from the terrain the defender is standing on."""
+    if base_type(defender.vehicle_type) == "PLANE" or defender.tile is None:
+        return 0.0
+    return TERRAIN_COVER.get(defender.tile.terrain_type, 0.0)
+
+
+def _matchup(attacker_type, defender_type):
+    """Returns (damage_multiplier, quality_score) for this type pairing."""
+    attacker_kind = base_type(attacker_type)
+    defender_kind = base_type(defender_type)
+    if COUNTERS[attacker_kind] == defender_kind:
+        return MATCHUP_MULTIPLIER, 1.0
+    if COUNTERS[defender_kind] == attacker_kind:
+        return MATCHUP_PENALTY, 0.25
+    return 1.0, 0.5
+
+
+def _flank_score(attacker, defender, allies):
+    """Allies of the attacker adjacent to the defender make the shot easier."""
+    if defender.tile is None:
+        return 0.5
+    adjacent = sum(
+        1
+        for ally in allies
+        if ally.pk != attacker.pk and ally.tile and manhattan(ally.tile, defender.tile) == 1
+    )
+    if adjacent >= 2:
+        return 1.0
+    if adjacent == 1:
+        return 0.75
+    return 0.5
+
+
+def damage_band(attacker, defender, allies=()):
+    """
+    The damage envelope for one attack, before aim is applied.
+
+    This is the single source of truth for both the forecast shown in the UI
+    and the damage actually dealt, so the two can never drift apart. `allies`
+    are the attacker's own vehicles, used for the flanking bonus; omit them
+    and flanking scores neutral.
+    """
     stats = vehicle_stats(attacker.vehicle_type)
-    defender.health -= stats["damage"]
-    if defender.health <= 0:
+    matchup_mult, matchup_q = _matchup(attacker.vehicle_type, defender.vehicle_type)
+    cover = _cover(defender)
+
+    attack_range = max(stats["attack_range"], 1)
+    if attacker.tile and defender.tile:
+        distance = manhattan(attacker.tile, defender.tile)
+    else:
+        distance = attack_range
+    # Point blank is the cleanest shot; the edge of your range is the worst.
+    range_q = min(max(1.0 - (distance - 1) / attack_range, 0.0), 1.0)
+
+    raw_quality = (
+        QUALITY_WEIGHTS["range"] * range_q
+        + QUALITY_WEIGHTS["matchup"] * matchup_q
+        + QUALITY_WEIGHTS["cover"] * (1.0 - cover)
+        + QUALITY_WEIGHTS["flank"] * _flank_score(attacker, defender, allies)
+    )
+    quality = (raw_quality - _QUALITY_RAW_MIN) / (1.0 - _QUALITY_RAW_MIN)
+    quality = min(max(quality, 0.0), 1.0)
+
+    peak = stats["damage"] * PEAK_BONUS * matchup_mult * (1.0 - cover)
+    spread = _lerp(MAX_SPREAD, MIN_SPREAD, quality)
+
+    max_damage = max(1, round(peak))
+    min_damage = min(max(1, round(peak * (1.0 - spread))), max_damage)
+
+    return {
+        "min": min_damage,
+        "max": max_damage,
+        "crit_damage": max(1, round(peak * CRIT_MULTIPLIER)),
+        "crit_zone": _lerp(MIN_CRIT_ZONE, MAX_CRIT_ZONE, quality),
+        "quality": round(quality, 3),
+    }
+
+
+def resolve_damage(band, accuracy):
+    """Map a normalized aim accuracy onto a band. Returns {damage, is_crit}."""
+    accuracy = min(max(accuracy, 0.0), 1.0)
+    if accuracy >= 1.0 - band["crit_zone"]:
+        return {"damage": band["crit_damage"], "is_crit": True}
+    damage = _lerp(band["min"], band["max"], accuracy)
+    return {"damage": max(1, round(damage)), "is_crit": False}
+
+
+def apply_damage(attacker, defender, accuracy=DEFAULT_ACCURACY, allies=()):
+    """
+    Resolve one attack and persist the result.
+
+    Returns the full outcome so callers can report damage, crits and the band
+    that produced them. Deletes the defender if it was destroyed.
+    """
+    band = damage_band(attacker, defender, allies)
+    outcome = resolve_damage(band, accuracy)
+
+    defender.health -= outcome["damage"]
+    destroyed = defender.health <= 0
+    if destroyed:
         defender.delete()
-        return True
-    defender.save()
-    return False
+    else:
+        defender.save()
+
+    return {
+        "damage": outcome["damage"],
+        "is_crit": outcome["is_crit"],
+        "destroyed": destroyed,
+        "target_health": 0 if destroyed else defender.health,
+        "band": band,
+    }
 
 
 def check_game_over(player_state):
@@ -109,7 +289,9 @@ def run_enemy_turn(player_state):
         targets = valid_attack_targets(enemy, [nearest])
 
         if targets:
-            apply_damage(enemy, nearest)
+            # Enemies take the identical resolution path as the player; their
+            # fixed accuracy is the difficulty dial.
+            apply_damage(enemy, nearest, accuracy=ENEMY_ACCURACY, allies=enemy_vehicles)
             check_game_over(player_state)
             continue
 

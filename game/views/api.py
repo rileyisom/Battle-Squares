@@ -154,6 +154,10 @@ def attack(request, vehicle_id):
     try:
         data = json.loads(request.body)
         target_id = data.get("target_id")
+        # The aim minigame runs client-side, so accuracy is the *only* thing we
+        # accept from it. The band — and therefore the damage — is recomputed
+        # server-side from board state that the client cannot influence.
+        accuracy = combat.parse_accuracy(data.get("accuracy"))
 
         vehicle = get_object_or_404(
             PlayerVehicle, pk=vehicle_id, player_state__user=request.user, is_enemy=False
@@ -172,7 +176,10 @@ def attack(request, vehicle_id):
         if not targets:
             return json_error("Target out of range.", 400)
 
-        destroyed = combat.apply_damage(vehicle, target)
+        allies = list(
+            player_state.vehicles.filter(is_enemy=False).select_related("tile")
+        )
+        outcome = combat.apply_damage(vehicle, target, accuracy=accuracy, allies=allies)
         vehicle.has_acted = True
         vehicle.save()
 
@@ -181,8 +188,11 @@ def attack(request, vehicle_id):
         return JsonResponse(
             {
                 "status": "ok",
-                "target_destroyed": destroyed,
-                "target_health": 0 if destroyed else target.health,
+                "target_destroyed": outcome["destroyed"],
+                "target_health": outcome["target_health"],
+                "damage": outcome["damage"],
+                "is_crit": outcome["is_crit"],
+                "band": outcome["band"],
                 "game_status": game_status,
             }
         )

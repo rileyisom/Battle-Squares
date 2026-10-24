@@ -1,3 +1,5 @@
+import { runAim } from './aim.js';
+
 export class GameGrid {
   constructor(rootEl, config) {
     this.root = rootEl;
@@ -187,9 +189,7 @@ export class GameGrid {
       return;
     }
 
-    const healthBar = vehicleEl.parentElement.querySelector(
-      `[data-health-bar-for='${vehicleId}']`
-    );
+    const healthBar = vehicleEl.parentElement.querySelector(`[data-health-bar-for='${vehicleId}']`);
     tileEl.appendChild(vehicleEl);
     if (healthBar) tileEl.appendChild(healthBar);
     vehicleEl.dataset.tileId = tileId;
@@ -203,10 +203,18 @@ export class GameGrid {
     const attackerId = attackerEl.dataset.vehicleId;
     const targetId = targetVehicleEl.dataset.vehicleId;
 
+    // Only the accuracy crosses the wire; the server recomputes the damage
+    // band itself, so a tampered value can shift a shot within its band but
+    // never beyond it.
+    const accuracy = await runAim(attackerEl.dataset.vehicleType, {
+      attackerEl,
+      targetEl: targetVehicleEl,
+    });
+
     const response = await fetch(`${this.urls.attack}${attackerId}/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this._getCSRF() },
-      body: JSON.stringify({ target_id: targetId }),
+      body: JSON.stringify({ target_id: targetId, accuracy }),
     });
     const result = await response.json();
     if (result.status !== 'ok') {
@@ -239,7 +247,9 @@ export class GameGrid {
     const maxHealth = parseInt(vehicleEl.dataset.maxHealth, 10) || 100;
     const pct = Math.max(0, Math.min(100, Math.round((health / maxHealth) * 100)));
     const tile = vehicleEl.closest('.tile');
-    const fill = tile ? tile.querySelector(`[data-health-bar-for='${vehicleId}'] .health-bar-fill`) : null;
+    const fill = tile
+      ? tile.querySelector(`[data-health-bar-for='${vehicleId}'] .health-bar-fill`)
+      : null;
     if (fill) fill.style.width = `${pct}%`;
     vehicleEl.dataset.health = health;
   }

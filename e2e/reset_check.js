@@ -18,13 +18,24 @@ const { chromium } = require('playwright');
   await page.waitForSelector('#reset-btn', { timeout: 10000 });
   await page.click('#reset-btn');
   await page.waitForTimeout(1000);
-  await page.waitForSelector('#start-btn:not(.hidden)');
+  // Reset returns every vehicle to the dock, so Start Game is correctly hidden
+  // until they're all placed again.
+  await page.waitForSelector('#vehicle-dock .vehicle');
 
-  console.log('Start button visible again:', await page.isVisible('#start-btn'));
   console.log('Vehicles in dock:', await page.locator('#vehicle-dock .vehicle').count());
-  console.log('Enemy tank on board:', await page.locator("img[data-vehicle-type='ENEMY_TANK']").count());
-  console.log('Enemy plane on board:', await page.locator("img[data-vehicle-type='ENEMY_PLANE']").count());
-  console.log('Enemy boat on board:', await page.locator("img[data-vehicle-type='ENEMY_BOAT']").count());
+  console.log('Start button hidden while dock is full:', !(await page.isVisible('#start-btn')));
+  console.log(
+    'Enemy tank on board:',
+    await page.locator("img[data-vehicle-type='ENEMY_TANK']").count()
+  );
+  console.log(
+    'Enemy plane on board:',
+    await page.locator("img[data-vehicle-type='ENEMY_PLANE']").count()
+  );
+  console.log(
+    'Enemy boat on board:',
+    await page.locator("img[data-vehicle-type='ENEMY_BOAT']").count()
+  );
 
   await browser.close();
 })();
